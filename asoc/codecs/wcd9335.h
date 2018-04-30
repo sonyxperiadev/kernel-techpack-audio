@@ -164,6 +164,7 @@ extern int tasha_codec_enable_standalone_micbias(struct snd_soc_codec *codec,
 extern int tasha_set_spkr_mode(struct snd_soc_codec *codec, int mode);
 extern int tasha_set_spkr_gain_offset(struct snd_soc_codec *codec, int offset);
 extern enum codec_variant tasha_codec_ver(void);
+extern int tasha_set_spk_amp_gpio(struct snd_soc_codec *codec, int gpio);
 #else /* CONFIG_SND_SOC_WCD9335 */
 static inline void *tasha_get_afe_config(struct snd_soc_codec *codec,
 				  enum afe_config_type config_type)
@@ -231,6 +232,11 @@ static inline int tasha_set_spkr_gain_offset(struct snd_soc_codec *codec,
 	return 0;
 }
 static inline enum codec_variant tasha_codec_ver(void)
+{
+	return 0;
+}
+static inline int tasha_set_spk_amp_gpio(struct snd_soc_codec *codec,
+					     int gpio)
 {
 	return 0;
 }
