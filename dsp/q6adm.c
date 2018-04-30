@@ -2916,9 +2916,7 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		channel_mode = 1;
 
 #ifdef CONFIG_ARCH_SONY_NILE
-	if (path == ADM_PATH_PLAYBACK && !(perf_mode == LOW_LATENCY_PCM_MODE ||
-			perf_mode == ULTRA_LOW_LATENCY_PCM_MODE ||
-			perf_mode == ULL_POST_PROCESSING_PCM_MODE))
+	if (path == ADM_PATH_PLAYBACK)
 		bit_width = 24;
 #endif
 	/*
