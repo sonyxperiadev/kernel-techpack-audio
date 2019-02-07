@@ -2032,7 +2032,7 @@ static void send_adm_custom_topology(void)
 	this_adm.set_custom_topology = 0;
 
 	cal_block = cal_utils_get_only_cal_block(this_adm.cal_data[cal_index]);
-	if (cal_block == NULL || cal_utils_is_cal_stale(cal_block))
+	if (cal_block == NULL)
 		goto unlock;
 
 	pr_debug("%s: Sending cal_index %d\n", __func__, cal_index);
@@ -2172,9 +2172,6 @@ static struct cal_block_data *adm_find_cal_by_path(int cal_index, int path)
 		cal_block = list_entry(ptr,
 			struct cal_block_data, list);
 
-		if (cal_utils_is_cal_stale(cal_block))
-			continue;
-
 		if (cal_index == ADM_AUDPROC_CAL ||
 		    cal_index == ADM_LSM_AUDPROC_CAL ||
 		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL) {
@@ -2209,9 +2206,6 @@ static struct cal_block_data *adm_find_cal_by_app_type(int cal_index, int path,
 
 		cal_block = list_entry(ptr,
 			struct cal_block_data, list);
-
-		if (cal_utils_is_cal_stale(cal_block))
-			continue;
 
 		if (cal_index == ADM_AUDPROC_CAL ||
 		    cal_index == ADM_LSM_AUDPROC_CAL ||
@@ -2251,8 +2245,6 @@ static struct cal_block_data *adm_find_cal(int cal_index, int path,
 
 		cal_block = list_entry(ptr,
 			struct cal_block_data, list);
-		if (cal_utils_is_cal_stale(cal_block))
-			continue;
 
 		if (cal_index == ADM_AUDPROC_CAL ||
 		    cal_index == ADM_LSM_AUDPROC_CAL ||
@@ -2322,8 +2314,6 @@ static void send_adm_cal_type(int cal_index, int path, int port_id,
 
 	ret = adm_remap_and_send_cal_block(cal_index, port_id, copp_idx,
 		cal_block, perf_mode, app_type, acdb_id, sample_rate);
-
-	cal_utils_mark_cal_used(cal_block);
 unlock:
 	mutex_unlock(&this_adm.cal_data[cal_index]->lock);
 done:
@@ -3712,7 +3702,7 @@ int send_rtac_audvol_cal(void)
 
 	cal_block = cal_utils_get_only_cal_block(
 		this_adm.cal_data[ADM_RTAC_AUDVOL_CAL]);
-	if (cal_block == NULL || cal_utils_is_cal_stale(cal_block)) {
+	if (cal_block == NULL) {
 		pr_err("%s: can't find cal block!\n", __func__);
 		goto unlock;
 	}
