@@ -26,6 +26,7 @@
 #include <linux/time.h>
 #include <linux/atomic.h>
 #include <linux/mm.h>
+#include <linux/of.h>
 
 #include <asm/ioctls.h>
 
@@ -6483,6 +6484,19 @@ static int __q6asm_media_format_block_pcm_v4(struct audio_client *ac,
 fail_cmd:
 	return rc;
 }
+
+static int __q6asm_media_format_block_multi_ch_pcm(struct audio_client *ac,
+				uint32_t rate, uint32_t channels,
+				bool use_default_chmap, char *channel_map,
+				uint16_t bits_per_sample);
+
+static int __q6asm_media_format_block_multi_ch_pcm_v3(struct audio_client *ac,
+						      uint32_t rate,
+						      uint32_t channels,
+						      bool use_default_chmap,
+						      char *channel_map,
+						      uint16_t bits_per_sample,
+						      uint16_t sample_word_size);
 
 
 static int __q6asm_media_format_block_pcm_v5(struct audio_client *ac,

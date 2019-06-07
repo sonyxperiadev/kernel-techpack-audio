@@ -1111,7 +1111,6 @@ static int msm_routing_get_adm_topology(int fedai_id, int session_type,
 	if (cal_block != NULL) {
 		topology = ((struct audio_cal_info_adm_top *)
 			cal_block->cal_info)->topology;
-		cal_utils_mark_cal_used(cal_block);
 		mutex_unlock(&cal_data[ADM_TOPOLOGY_CAL_TYPE_IDX]->lock);
 	} else {
 		mutex_unlock(&cal_data[ADM_TOPOLOGY_CAL_TYPE_IDX]->lock);
@@ -1124,7 +1123,6 @@ static int msm_routing_get_adm_topology(int fedai_id, int session_type,
 		if (cal_block != NULL) {
 			topology = ((struct audio_cal_info_adm_top *)
 				cal_block->cal_info)->topology;
-			cal_utils_mark_cal_used(cal_block);
 		}
 		mutex_unlock(&cal_data[ADM_LSM_TOPOLOGY_CAL_TYPE_IDX]->lock);
 	}
