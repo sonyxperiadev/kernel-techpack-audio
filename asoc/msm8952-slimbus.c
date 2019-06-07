@@ -2521,7 +2521,7 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	if (!list_empty(&rtd->card->aux_comp_list)) {
 		aux_comp = list_first_entry(&rtd->card->aux_comp_list,
-				struct snd_soc_component, list_aux);
+				struct snd_soc_component, card_aux_list);
 		if (!strcmp(aux_comp->name, WSA8810_NAME_1) ||
 		    !strcmp(aux_comp->name, WSA8810_NAME_2)) {
 			tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
