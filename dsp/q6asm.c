@@ -3716,6 +3716,15 @@ int q6asm_stream_open_write_v5(struct audio_client *ac, uint32_t format,
 			       uint16_t bits_per_sample, int32_t stream_id,
 			       bool is_gapless_mode)
 {
+	if (of_machine_is_compatible("qcom,msm8956") ||
+	    of_machine_is_compatible("qcom,apq8056"))
+		return q6asm_stream_open_write_v2(ac, format, bits_per_sample,
+						stream_id, is_gapless_mode);
+
+	if (of_machine_is_compatible("qcom,msm8996"))
+		return q6asm_stream_open_write_v3(ac, format, bits_per_sample,
+						stream_id, is_gapless_mode);
+
 	return __q6asm_open_write(ac, format, bits_per_sample,
 				  stream_id, is_gapless_mode,
 				  PCM_MEDIA_FORMAT_V5 /*pcm_format_block_ver*/);
