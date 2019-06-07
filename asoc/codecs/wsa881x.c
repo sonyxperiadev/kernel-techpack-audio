@@ -1096,6 +1096,8 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 		snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT1,
 #if defined(CONFIG_ARCH_SONY_LOIRE) || defined(CONFIG_ARCH_SONY_TONE)
 				    0xF0, 0x30);
+#elif defined(CONFIG_ARCH_SONY_TAMA)
+				    0xF0, 0x7F);
 #else
 				    0xF0, 0x70);
 #endif
