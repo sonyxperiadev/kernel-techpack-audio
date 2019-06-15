@@ -114,8 +114,12 @@ config SND_SOC_MSM_SDW
 	tristate "SND_SOC_MSM_SDW"
 config SND_SOC_MSM_HDMI_CODEC_RX
 	tristate "SND_SOC_MSM_HDMI_CODEC_RX"
+config SND_SOC_MACHINE_SDM845
+        tristate "SND_SOC_MACHINE_SDM845"
+        depends on SND_SOC_SDM845
 config SND_SOC_SDM845
 	tristate "SND_SOC_SDM845"
+        select SND_SOC_MACHINE_SDM845
 config SND_SOC_SDM670
 	tristate "SND_SOC_SDM670"
 config SND_SOC_SM8150
