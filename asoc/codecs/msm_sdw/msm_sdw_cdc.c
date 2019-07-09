@@ -2010,6 +2010,11 @@ static int msm_sdw_probe(struct platform_device *pdev)
 			__func__, ret);
 		goto err_sdw_cdc;
 	}
+
+#if defined(CONFIG_ARCH_SONY_NILE) || defined(CONFIG_ARCH_SONY_GANGES)
+	regcache_cache_bypass(msm_sdw->regmap, true);
+#endif
+
 	/* initialize the int_mclk1 */
 	msm_sdw->sdw_cdc_core_clk.clk_set_minor_version =
 			AFE_API_VERSION_I2S_CONFIG;

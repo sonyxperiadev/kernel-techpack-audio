@@ -5068,6 +5068,7 @@ struct afe_param_id_lpass_core_shared_clk_cfg {
 #define COMPRESSED_PASSTHROUGH_DEFAULT_TOPOLOGY         0x0001076B
 #define COMPRESSED_PASSTHROUGH_NONE_TOPOLOGY            0x00010774
 #define VPM_TX_SM_ECNS_V2_COPP_TOPOLOGY			0x00010F89
+#define VPM_TX_SM_ECNS_COPP_TOPOLOGY			0x00010F71
 #define VPM_TX_VOICE_SMECNS_V2_COPP_TOPOLOGY		0x10000003
 #define VPM_TX_DM_FLUENCE_COPP_TOPOLOGY			0x00010F72
 #define VPM_TX_QMIC_FLUENCE_COPP_TOPOLOGY		0x00010F75
@@ -11371,7 +11372,7 @@ struct afe_clk_set {
 	 * for enable and disable clock.
 	 *	"clk_freq_in_hz", "clk_attri", and "clk_root"
 	 *	are ignored in disable clock case.
-	 *	@values 
+	 *	@values\A0
 	 *	- 0 -- Disabled
 	 *	- 1 -- Enabled  @tablebulletend
 	 */

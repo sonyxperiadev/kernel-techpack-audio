@@ -1043,9 +1043,6 @@ static struct cal_block_data *msm_routing_find_topology_by_path(int path,
 		cal_block = list_entry(ptr,
 			struct cal_block_data, list);
 
-		if (cal_utils_is_cal_stale(cal_block))
-			continue;
-
 		if (((struct audio_cal_info_adm_top *)cal_block
 			->cal_info)->path == path) {
 			return cal_block;
@@ -1071,9 +1068,6 @@ static struct cal_block_data *msm_routing_find_topology(int path,
 
 		cal_block = list_entry(ptr,
 			struct cal_block_data, list);
-
-		if (cal_utils_is_cal_stale(cal_block))
-			continue;
 
 		cal_info = (struct audio_cal_info_adm_top *)
 			cal_block->cal_info;
@@ -1117,7 +1111,6 @@ static int msm_routing_get_adm_topology(int fedai_id, int session_type,
 	if (cal_block != NULL) {
 		topology = ((struct audio_cal_info_adm_top *)
 			cal_block->cal_info)->topology;
-		cal_utils_mark_cal_used(cal_block);
 		mutex_unlock(&cal_data[ADM_TOPOLOGY_CAL_TYPE_IDX]->lock);
 	} else {
 		mutex_unlock(&cal_data[ADM_TOPOLOGY_CAL_TYPE_IDX]->lock);
@@ -1130,7 +1123,6 @@ static int msm_routing_get_adm_topology(int fedai_id, int session_type,
 		if (cal_block != NULL) {
 			topology = ((struct audio_cal_info_adm_top *)
 				cal_block->cal_info)->topology;
-			cal_utils_mark_cal_used(cal_block);
 		}
 		mutex_unlock(&cal_data[ADM_LSM_TOPOLOGY_CAL_TYPE_IDX]->lock);
 	}
@@ -1622,7 +1614,7 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 			if ((copp_idx < 0) ||
 				(copp_idx >= MAX_COPPS_PER_PORT)) {
 				pr_err("%s: adm open failed copp_idx:%d\n",
-				       __func__, copp_idx);
+					__func__, copp_idx);
 				mutex_unlock(&routing_lock);
 				return -EINVAL;
 			}
@@ -22070,6 +22062,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"PRI_MI2S_RX", NULL, "PRI_MI2S_DL_HL"},
 	{"TERT_MI2S_RX", NULL, "TERT_MI2S_DL_HL"},
 	{"QUAT_MI2S_UL_HL", NULL, "QUAT_MI2S_TX"},
+	{"QUIN_MI2S_UL_HL", NULL, "QUIN_MI2S_TX"},
 
 	{"PRI_TDM_TX_0_UL_HL", NULL, "PRI_TDM_TX_0"},
 	{"PRI_TDM_TX_1_UL_HL", NULL, "PRI_TDM_TX_1"},

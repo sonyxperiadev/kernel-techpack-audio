@@ -23,7 +23,13 @@
 #define WCD_MBHC_DEF_BUTTONS 8
 #define WCD_MBHC_KEYCODE_NUM 8
 #define WCD_MBHC_USLEEP_RANGE_MARGIN_US 100
-#define WCD_MBHC_THR_HS_MICB_MV  2700
+#if defined(CONFIG_ARCH_SONY_LOIRE) || defined(CONFIG_ARCH_SONY_TONE)
+ #define WCD_MBHC_THR_HS_MICB_MV	2450
+#elif defined(CONFIG_ARCH_SONY_TAMA)
+ #define WCD_MBHC_THR_HS_MICB_MV	2750
+#else
+ #define WCD_MBHC_THR_HS_MICB_MV  2700
+#endif
 /* z value defined in Ohms */
 #define WCD_MONO_HS_MIN_THR	2
 #define WCD_MBHC_STRINGIFY(s)  __stringify(s)
@@ -150,6 +156,16 @@ do {                                                    \
 #define FAKE_REM_RETRY_ATTEMPTS 3
 #define MAX_IMPED 60000
 
+#ifdef CONFIG_ARCH_SONY_TAMA
+ #undef GND_MIC_SWAP_THRESHOLD
+ #undef WCD_FAKE_REMOVAL_MIN_PERIOD_MS
+ #undef FAKE_REM_RETRY_ATTEMPTS
+
+ #define GND_MIC_SWAP_THRESHOLD		2
+ #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS	150
+ #define FAKE_REM_RETRY_ATTEMPTS	10
+#endif
+
 #define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  50
 #define ANC_DETECT_RETRY_CNT 7
 #define WCD_MBHC_SPL_HS_CNT  1
@@ -233,6 +249,9 @@ enum wcd_mbhc_plug_type {
 	MBHC_PLUG_TYPE_HIGH_HPH,
 	MBHC_PLUG_TYPE_GND_MIC_SWAP,
 	MBHC_PLUG_TYPE_ANC_HEADPHONE,
+#if defined(CONFIG_ARCH_SONY_LOIRE) || defined(CONFIG_ARCH_SONY_TONE)
+	MBHC_PLUG_TYPE_STEREO_MICROPHONE,
+#endif
 };
 
 enum pa_dac_ack_flags {
@@ -548,6 +567,9 @@ struct wcd_mbhc {
 	bool btn_press_intr;
 	bool is_hs_recording;
 	bool is_extn_cable;
+#ifdef CONFIG_ARCH_SONY_TAMA
+	bool extn_cable_inserted;
+#endif
 	bool skip_imped_detection;
 	bool is_btn_already_regd;
 	bool extn_cable_hph_rem;

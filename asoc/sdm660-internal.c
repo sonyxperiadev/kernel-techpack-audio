@@ -1218,8 +1218,13 @@ static void *def_msm_int_wcd_mbhc_cal(void)
 	if (!msm_int_wcd_cal)
 		return NULL;
 
+#if defined(CONFIG_ARCH_SONY_NILE) || defined (CONFIG_ARCH_SONY_GANGES)
+#define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm_int_wcd_cal)->X) = (Y))
+	S(v_hs_max, 1600);
+#else
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm_int_wcd_cal)->X) = (Y))
 	S(v_hs_max, 1500);
+#endif /* !CONFIG_ARCH_SONY_NILE */
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(msm_int_wcd_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -1252,6 +1257,11 @@ static void *def_msm_int_wcd_mbhc_cal(void)
 	btn_high[3] = 450;
 	btn_low[4] = 500;
 	btn_high[4] = 500;
+
+#if defined(CONFIG_ARCH_SONY_NILE) || defined (CONFIG_ARCH_SONY_GANGES)
+	btn_low[1] = 110;
+	btn_high[1] = 110;
+#endif
 
 	return msm_int_wcd_cal;
 }
@@ -1358,7 +1368,7 @@ static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (rtd->card->num_aux_devs &&
 		!list_empty(&rtd->card->aux_comp_list)) {
 		aux_comp = list_first_entry(&rtd->card->aux_comp_list,
-					struct snd_soc_component, list_aux);
+					struct snd_soc_component, card_aux_list);
 		if (!strcmp(aux_comp->name, WSA8810_NAME_1) ||
 			!strcmp(aux_comp->name, WSA8810_NAME_2)) {
 			msm_sdw_set_spkr_mode(rtd->codec, SPKR_MODE_1);

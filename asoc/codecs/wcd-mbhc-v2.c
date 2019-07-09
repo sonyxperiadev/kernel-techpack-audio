@@ -403,9 +403,10 @@ EXPORT_SYMBOL(wcd_cancel_btn_work);
 
 bool wcd_swch_level_remove(struct wcd_mbhc *mbhc)
 {
-	u16 result2 = 0;
+	int result2 = 0;
 
 	WCD_MBHC_REG_READ(WCD_MBHC_SWCH_LEVEL_REMOVE, result2);
+
 	return (result2) ? true : false;
 }
 EXPORT_SYMBOL(wcd_swch_level_remove);
@@ -558,6 +559,11 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 	bool is_pa_on = false;
 	u8 fsm_en = 0;
 
+#if defined(CONFIG_ARCH_SONY_LOIRE) || defined(CONFIG_ARCH_SONY_TONE) || \
+    defined(CONFIG_ARCH_SONY_TAMA)
+	bool skip_report = false;
+#endif
+
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
 	pr_debug("%s: enter insertion %d hph_status %x\n",
@@ -597,6 +603,9 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		}
 
 		mbhc->hph_type = WCD_MBHC_HPH_NONE;
+#ifdef CONFIG_ARCH_SONY_TAMA
+		mbhc->extn_cable_inserted = false;
+#endif
 		mbhc->zl = mbhc->zr = 0;
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
@@ -676,6 +685,10 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			mbhc->jiffies_atreport = jiffies;
 		} else if (jack_type == SND_JACK_LINEOUT) {
 			mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
+#if defined(CONFIG_ARCH_SONY_LOIRE) || defined (CONFIG_ARCH_SONY_TONE) || \
+    defined(CONFIG_ARCH_SONY_TAMA)
+			skip_report = true;
+#endif
 		} else if (jack_type == SND_JACK_ANC_HEADPHONE)
 			mbhc->current_plug = MBHC_PLUG_TYPE_ANC_HEADPHONE;
 
@@ -696,11 +709,30 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 					&mbhc->zl, &mbhc->zr);
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN,
 						 fsm_en);
+#if defined(CONFIG_ARCH_SONY_LOIRE) || defined(CONFIG_ARCH_SONY_TONE) || \
+    defined(CONFIG_ARCH_SONY_TAMA)
+
+ #ifndef CONFIG_ARCH_SONY_TAMA
+			if (mbhc->zl > mbhc->mbhc_cfg->linein_th &&
+			    jack_type == SND_JACK_ANC_HEADPHONE) {
+				jack_type = SND_JACK_STEREO_MICROPHONE;
+				mbhc->current_plug =
+					MBHC_PLUG_TYPE_STEREO_MICROPHONE;
+				mbhc->hph_status &= ~SND_JACK_HEADPHONE;
+				pr_debug("%s: Stereo microphone detected\n",
+					 __func__);
+			} else
+ #endif
+			if (mbhc->zl > mbhc->mbhc_cfg->linein_th &&
+				mbhc->zr > mbhc->mbhc_cfg->linein_th &&
+				jack_type == SND_JACK_HEADPHONE) {
+#else
 			if ((mbhc->zl > mbhc->mbhc_cfg->linein_th &&
 				mbhc->zl < MAX_IMPED) &&
 				(mbhc->zr > mbhc->mbhc_cfg->linein_th &&
 				 mbhc->zr < MAX_IMPED) &&
 				(jack_type == SND_JACK_HEADPHONE)) {
+#endif
 				jack_type = SND_JACK_LINEOUT;
 				mbhc->force_linein = true;
 				mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
@@ -722,6 +754,10 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
+#if defined(CONFIG_ARCH_SONY_LOIRE) || defined (CONFIG_ARCH_SONY_TONE) || \
+    defined(CONFIG_ARCH_SONY_TAMA)
+		if (!skip_report)
+#endif
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				    (mbhc->hph_status | SND_JACK_MECHANICAL),
 				    WCD_MBHC_JACK_MASK);
@@ -990,6 +1026,11 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		case MBHC_PLUG_TYPE_ANC_HEADPHONE:
 			jack_type = SND_JACK_ANC_HEADPHONE;
 			break;
+#if defined(CONFIG_ARCH_SONY_LOIRE) || defined (CONFIG_ARCH_SONY_TONE)
+		case MBHC_PLUG_TYPE_STEREO_MICROPHONE:
+			jack_type = SND_JACK_STEREO_MICROPHONE;
+			break;
+#endif
 		default:
 			pr_info("%s: Invalid current plug: %d\n",
 				__func__, mbhc->current_plug);
@@ -998,6 +1039,9 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		}
 		wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_REM, false);
 		wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS, false);
+		/* TODO: Note: On k4.4 for LOIRE/TONE STEREO_MICROPHONE this is
+		 * getting updated to ZERO, not ONE, though it's probably
+		 * wrong, so it should be right on k4.9, where we set to 1. */
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_DETECTION_TYPE, 1);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, 0);
 		mbhc->extn_cable_hph_rem = false;
@@ -1766,6 +1810,9 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	mbhc->is_hs_recording = false;
 	mbhc->is_extn_cable = false;
 	mbhc->extn_cable_hph_rem = false;
+#ifdef CONFIG_ARCH_SONY_TAMA
+	mbhc->extn_cable_inserted = false;
+#endif
 	mbhc->hph_type = WCD_MBHC_HPH_NONE;
 	mbhc->wcd_mbhc_regs = wcd_mbhc_regs;
 	mbhc->swap_thr = GND_MIC_SWAP_THRESHOLD;
