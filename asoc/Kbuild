@@ -39,6 +39,22 @@ COMMON_INC :=	-I$(AUDIO_ROOT)/$(COMMON_DIR)
 
 ############ ASoC Drivers ############
 
+# for MSM8956 sound card driver
+ifdef CONFIG_SND_SOC_MSM8956
+	MACHINE_OBJS += msm8952.o
+	MACHINE_OBJS += msm8952-slimbus.o
+	MACHINE_OBJS += msm8952-dai-links.o
+endif
+
+# for MSM8996 sound card driver
+ifdef CONFIG_SND_SOC_MSM8996
+	MACHINE_OBJS += msm8996.o
+endif
+
+# for MSM8998 sound card driver
+ifdef CONFIG_SND_SOC_MSM8998
+	MACHINE_OBJS += msm8998.o
+endif
 
 # for SDM6xx sound card driver
 ifdef CONFIG_SND_SOC_SDM670
@@ -185,6 +201,12 @@ obj-$(CONFIG_SND_SOC_EXT_CODEC) += machine_dlkm.o
 machine_dlkm-y := $(MACHINE_OBJS)
 
 obj-$(CONFIG_SND_SOC_INT_CODEC) += machine_dlkm.o
+machine_dlkm-y := $(MACHINE_OBJS)
+
+obj-$(CONFIG_SND_SOC_MSM8956) += machine_dlkm.o
+machine_dlkm-y := $(MACHINE_OBJS)
+
+obj-$(CONFIG_SND_SOC_MSM8996) += machine_dlkm.o
 machine_dlkm-y := $(MACHINE_OBJS)
 
 obj-$(CONFIG_SND_SOC_CPE) += cpe_lsm_dlkm.o
