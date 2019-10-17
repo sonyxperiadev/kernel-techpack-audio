@@ -1567,6 +1567,11 @@ static int q6core_probe(struct platform_device *pdev)
 	}
 
 err:
+	if (rc)
+		dev_err(&pdev->dev, "Q6 Core driver probe failure: %d\n", rc);
+	else
+		dev_info(&pdev->dev, "Q6 Core driver is up\n");
+
 	return rc;
 }
 
