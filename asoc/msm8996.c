@@ -3336,7 +3336,7 @@ static int msm8996_wsa881x_init(struct snd_soc_component *component)
 			__func__, codec->component.name);
 		wsa881x_set_channel_map(codec, &spkleft_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
-				&ch_rate[0]);
+				&ch_rate[0], 0);
 		if (dapm->component) {
 			snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft IN");
 			snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft SPKR");
@@ -3346,7 +3346,7 @@ static int msm8996_wsa881x_init(struct snd_soc_component *component)
 			__func__, codec->component.name);
 		wsa881x_set_channel_map(codec, &spkright_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
-				&ch_rate[0]);
+				&ch_rate[0], 0);
 		if (dapm->component) {
 			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight IN");
 			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight SPKR");
