@@ -281,13 +281,20 @@ static int wcd_pinctrl_probe(struct platform_device *pdev)
 	u32 npins;
 	char **name;
 
-	ret = of_property_read_u32(dev->of_node, "qcom,num-gpios", &npins);
-	if (ret) {
-		dev_err(dev, "%s: Looking up %s property in node %s failed\n",
-			__func__, "qcom,num-gpios", dev->of_node->full_name);
-		ret = -EINVAL;
-		goto err_priv_alloc;
+	ret = of_property_read_u32(dev->of_node, "qcom,num-pins", &npins);
+	if (ret < 0) {
+		ret = of_property_read_u32(dev->of_node, "qcom,num-gpios",
+					   &npins);
+		if (ret < 0) {
+			dev_err(dev, "%s: Looking up qcom,num-gpios or"
+				     "qcom,num-pins property in node %s"
+				     " failed\n", __func__,
+				     dev->of_node->full_name);
+			ret = -EINVAL;
+			goto err_priv_alloc;
+		}
 	}
+
 	if (!npins) {
 		dev_err(dev, "%s: no.of pins are 0\n", __func__);
 		ret = -EINVAL;
