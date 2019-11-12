@@ -1098,6 +1098,8 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 				    0xF0, 0x30);
 #elif defined(CONFIG_ARCH_SONY_TAMA)
 				    0xF0, 0x7F);
+#elif defined(CONFIG_ARCH_SONY_KUMANO)
+				    0xF0, 0x7B);
 #else
 				    0xF0, 0x70);
 #endif

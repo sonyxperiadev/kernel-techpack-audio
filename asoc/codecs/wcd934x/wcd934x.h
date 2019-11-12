@@ -19,6 +19,14 @@
 #include "../wcd9xxx-common-v2.h"
 #include "../wcd-mbhc-v2.h"
 
+#ifdef AUDIO_SONY_PLATFORM
+  #undef AUDIO_SONY_PLATFORM
+#endif
+
+#if defined(CONFIG_ARCH_SONY_TAMA) || defined(CONFIG_ARCH_SONY_KUMANO)
+  #define AUDIO_SONY_PLATFORM 1
+#endif
+
 #define WCD934X_REGISTER_START_OFFSET  0x800
 #define WCD934X_SB_PGD_PORT_RX_BASE   0x40
 #define WCD934X_SB_PGD_PORT_TX_BASE   0x50
@@ -116,7 +124,7 @@ enum {
  */
 enum {
 	WCD934X_RX_GAIN_OFFSET_M1P5_DB,
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 	WCD934X_RX_GAIN_OFFSET_M0P5_DB,
 #endif
 	WCD934X_RX_GAIN_OFFSET_0_DB,

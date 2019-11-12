@@ -25,7 +25,7 @@
 #define WCD_MBHC_USLEEP_RANGE_MARGIN_US 100
 #if defined(CONFIG_ARCH_SONY_LOIRE) || defined(CONFIG_ARCH_SONY_TONE)
  #define WCD_MBHC_THR_HS_MICB_MV	2450
-#elif defined(CONFIG_ARCH_SONY_TAMA)
+#elif defined(CONFIG_ARCH_SONY_TAMA) || defined(CONFIG_ARCH_SONY_KUMANO)
  #define WCD_MBHC_THR_HS_MICB_MV	2750
 #else
  #define WCD_MBHC_THR_HS_MICB_MV  2700
@@ -156,7 +156,7 @@ do {                                                    \
 #define FAKE_REM_RETRY_ATTEMPTS 3
 #define MAX_IMPED 60000
 
-#ifdef CONFIG_ARCH_SONY_TAMA
+#if defined(CONFIG_ARCH_SONY_TAMA) || defined(CONFIG_ARCH_SONY_KUMANO)
  #undef GND_MIC_SWAP_THRESHOLD
  #undef WCD_FAKE_REMOVAL_MIN_PERIOD_MS
  #undef FAKE_REM_RETRY_ATTEMPTS
@@ -578,7 +578,7 @@ struct wcd_mbhc {
 	bool btn_press_intr;
 	bool is_hs_recording;
 	bool is_extn_cable;
-#ifdef CONFIG_ARCH_SONY_TAMA
+#if defined(CONFIG_ARCH_SONY_TAMA) || defined(CONFIG_ARCH_SONY_KUMANO)
 	bool extn_cable_inserted;
 #endif
 	bool skip_imped_detection;
