@@ -35,6 +35,14 @@
 #include "../wcdcal-hwdep.h"
 #include "../wcd-mbhc-v2-api.h"
 
+#ifdef AUDIO_SONY_PLATFORM
+  #undef AUDIO_SONY_PLATFORM
+#endif
+
+#if defined(CONFIG_ARCH_SONY_TAMA) || defined(CONFIG_ARCH_SONY_KUMANO)
+  #define AUDIO_SONY_PLATFORM 1
+#endif
+
 #define TAVIL_ZDET_SUPPORTED          true
 /* Z value defined in milliohm */
 #define TAVIL_ZDET_VAL_32             32000
@@ -493,7 +501,7 @@ static inline void tavil_mbhc_get_result_params(struct wcd9xxx *wcd9xxx,
 	if ((c1 < 2) && x1)
 		usleep_range(5000, 5050);
 
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 	if (!c1) {
 #else
 	if (!c1 || !x1) {

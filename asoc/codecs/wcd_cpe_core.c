@@ -827,7 +827,7 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 		bool enable)
 {
 	int ret = 0;
-#ifdef CONFIG_ARCH_SONY_TAMA
+#if defined(CONFIG_ARCH_SONY_TAMA) || defined(CONFIG_ARCH_SONY_KUMANO)
 	int timeout = 0;
 	int err_cnt = 0;
 #endif
@@ -854,7 +854,7 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 			goto fail_boot;
 
 		/* Dload data section */
-#ifdef CONFIG_ARCH_SONY_TAMA
+#if defined(CONFIG_ARCH_SONY_TAMA) || defined(CONFIG_ARCH_SONY_KUMANO)
 		for (err_cnt = 0; err_cnt < 10; err_cnt++) {
 			/* Dload data section */
 			ret = wcd_cpe_load_fw(core, ELF_FLAG_RW);
@@ -900,7 +900,7 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 			"%s: waiting for CPE bootup\n",
 			__func__);
 
-#ifdef CONFIG_ARCH_SONY_TAMA
+#if defined(CONFIG_ARCH_SONY_TAMA) || defined(CONFIG_ARCH_SONY_KUMANO)
 		timeout = wait_for_completion_timeout(&core->online_compl,
 						msecs_to_jiffies(1000));
 		if (!timeout) {

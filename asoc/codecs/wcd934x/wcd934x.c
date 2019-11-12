@@ -51,6 +51,14 @@
 #include "../wcdcal-hwdep.h"
 #include "wcd934x-dsd.h"
 
+#ifdef AUDIO_SONY_PLATFORM
+  #undef AUDIO_SONY_PLATFORM
+#endif
+
+#if defined(CONFIG_ARCH_SONY_TAMA) || defined(CONFIG_ARCH_SONY_KUMANO)
+  #define AUDIO_SONY_PLATFORM 1
+#endif
+
 #define WCD934X_RATES_MASK (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			    SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000 |\
 			    SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000 |\
@@ -3913,7 +3921,7 @@ static int tavil_codec_set_idle_detect_thr(struct snd_soc_codec *codec,
 	return 0;
 }
 
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 static void tavil_codec_set_offset_val(int *offset_val, int gain_offset,
 				       int mult)
 {
@@ -3965,7 +3973,7 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, mix_reg, 0x20, 0x20);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 		if ((tavil->swr.spkr_gain_offset ==
 		     WCD934X_RX_GAIN_OFFSET_0_DB) &&
 #else
@@ -3986,7 +3994,7 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					    WCD934X_CDC_RX8_RX_PATH_MIX_SEC0,
 					    0x01, 0x01);
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 			tavil_codec_set_offset_val(&offset_val,
 						   tavil->swr.spkr_gain_offset, -1);
 #else
@@ -4006,7 +4014,7 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, mix_reg, 0x40, 0x40);
 		snd_soc_update_bits(codec, mix_reg, 0x40, 0x00);
 
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 		if ((tavil->swr.spkr_gain_offset ==
 		     WCD934X_RX_GAIN_OFFSET_0_DB) &&
 #else
@@ -4027,7 +4035,7 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					    WCD934X_CDC_RX8_RX_PATH_MIX_SEC0,
 					    0x01, 0x00);
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 			tavil_codec_set_offset_val(&offset_val,
 						   tavil->swr.spkr_gain_offset, 1);
 #else
@@ -4101,7 +4109,7 @@ static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		/* apply gain after int clk is enabled */
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 		if ((tavil->swr.spkr_gain_offset ==
 		     			WCD934X_RX_GAIN_OFFSET_0_DB) &&
 #else
@@ -4122,7 +4130,7 @@ static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					    WCD934X_CDC_RX8_RX_PATH_MIX_SEC0,
 					    0x01, 0x01);
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 			tavil_codec_set_offset_val(&offset_val,
 						   tavil->swr.spkr_gain_offset, -1);
 #else
@@ -4137,7 +4145,7 @@ static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		tavil_codec_enable_interp_clk(codec, event, w->shift);
 
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 		if ((tavil->swr.spkr_gain_offset ==
 		     			WCD934X_RX_GAIN_OFFSET_0_DB) &&
 #else
@@ -4158,7 +4166,7 @@ static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					    WCD934X_CDC_RX8_RX_PATH_MIX_SEC0,
 					    0x01, 0x00);
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 			tavil_codec_set_offset_val(&offset_val,
 						   tavil->swr.spkr_gain_offset, 1);
 #else
@@ -9594,7 +9602,7 @@ static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
 	{WCD934X_MICB2_TEST_CTL_1, 0xff, 0xfa},
 	{WCD934X_MICB3_TEST_CTL_1, 0xff, 0xfa},
 	{WCD934X_MICB4_TEST_CTL_1, 0xff, 0xfa},
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 	{WCD934X_CDC_RX3_RX_PATH_CFG1, 0x64, 0x00}
 #endif
 };
@@ -11195,7 +11203,7 @@ static int tavil_probe(struct platform_device *pdev)
 	tavil->swr.plat_data.handle_irq = tavil_swrm_handle_irq;
 	tavil->swr.spkr_gain_offset = WCD934X_RX_GAIN_OFFSET_0_DB;
 
-#ifdef CONFIG_ARCH_SONY_TAMA
+#ifdef AUDIO_SONY_PLATFORM
 	tavil->swr.spkr_gain_offset = WCD934X_RX_GAIN_OFFSET_M0P5_DB;
 #endif
 
