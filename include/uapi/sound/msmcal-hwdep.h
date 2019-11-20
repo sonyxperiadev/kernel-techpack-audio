@@ -1,6 +1,12 @@
 #ifndef _CALIB_HWDEP_H
 #define _CALIB_HWDEP_H
 
+#ifndef __KERNEL__
+ #ifndef __user
+  #define __user
+ #endif
+#endif
+
 #define WCD9XXX_CODEC_HWDEP_NODE    1000
 #define AQT1000_CODEC_HWDEP_NODE    1001
 #define Q6AFE_HWDEP_NODE    1002
