@@ -1048,9 +1048,13 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		wcd_mbhc_report_plug(mbhc, 0, jack_type);
 
 		if (mbhc->mbhc_cfg->enable_usbc_analog) {
-			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 0);
-			if (mbhc->mbhc_cb->clk_setup)
-				mbhc->mbhc_cb->clk_setup(mbhc->codec, false);
+			if (mbhc->mbhc_cfg->usbc_analog_legacy) {
+				WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 1);
+			} else {
+				WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 0);
+				if (mbhc->mbhc_cb->clk_setup)
+					mbhc->mbhc_cb->clk_setup(mbhc->codec, false);
+			}
 		}
 
 		if (mbhc->mbhc_cfg->moisture_en &&
@@ -1425,7 +1429,7 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	 * when a non-audio accessory is inserted. L_DET_EN sets to 1 when FSA
 	 * I2C driver notifies that ANALOG_AUDIO_ADAPTER is inserted
 	 */
-	if (mbhc->mbhc_cfg->enable_usbc_analog)
+	if (mbhc->mbhc_cfg->enable_usbc_analog && !mbhc->mbhc_cfg->usbc_analog_legacy)
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 0);
 	else
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 1);
