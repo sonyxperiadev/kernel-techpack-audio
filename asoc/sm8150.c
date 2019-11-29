@@ -4302,7 +4302,7 @@ static void *def_wcd_mbhc_cal(void)
  #define BTN_H1 150
 #endif
 
-#define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(tavil_wcd_cal)->X) = (Y))
+#define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(wcd_mbhc_cal)->X) = (Y))
 	S(v_hs_max, VHSMAX);
 #undef S
 #undef S
