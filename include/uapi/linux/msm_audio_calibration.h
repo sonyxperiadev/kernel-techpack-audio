@@ -119,7 +119,15 @@ enum {
 #define ADM_LSM_AUDPROC_PERSISTENT_CAL_TYPE ADM_LSM_AUDPROC_PERSISTENT_CAL_TYPE
 #define LSM_CAL_TYPES
 
-#define TOPOLOGY_SPECIFIC_CHANNEL_INFO
+/*
+ * The firmware on the legacy targets does not support this feature
+ */
+#if defined(CONFIG_ARCH_MSM8916) || defined(CONFIG_ARCH_MSM8996) || \
+	defined(CONFIG_ARCH_MSM8998) || defined(CONFIG_ARCH_SDM630) ||  \
+	defined(CONFIG_ARCH_SDM660)  || defined(CONFIG_ARCH_SDM845)
+	#define TOPOLOGY_SPECIFIC_CHANNEL_INFO
+#endif
+
 #define MSM_SPKR_PROT_SPV3
 
 enum {
