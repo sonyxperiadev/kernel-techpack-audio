@@ -122,9 +122,10 @@ enum {
 /*
  * The firmware on the legacy targets does not support this feature
  */
-#if defined(CONFIG_ARCH_MSM8916) || defined(CONFIG_ARCH_MSM8996) || \
-	defined(CONFIG_ARCH_MSM8998) || defined(CONFIG_ARCH_SDM630) ||  \
-	defined(CONFIG_ARCH_SDM660)  || defined(CONFIG_ARCH_SDM845)
+#if !(defined(CONFIG_ARCH_MSM8916) || defined(CONFIG_ARCH_MSM8956)   || \
+	defined(CONFIG_ARCH_MSM8996) || defined(CONFIG_ARCH_MSM8998) || \
+	defined(CONFIG_ARCH_SDM630)  || defined(CONFIG_ARCH_SDM660)  || \
+	defined(CONFIG_ARCH_SDM845))
 	#define TOPOLOGY_SPECIFIC_CHANNEL_INFO
 #endif
 
