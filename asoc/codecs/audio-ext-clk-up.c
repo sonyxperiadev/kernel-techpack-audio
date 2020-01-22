@@ -206,6 +206,7 @@ static const struct clk_ops lpass_hw_vote_ops = {
 
 static const char * const audio_ext_pmi_div_clk[] = {
 	"qpnp_clkdiv_1",
+	"div_clk1",
 	"pms405_div_clk1",
 	"pm6150_div_clk1",
 	"pm6125_div_clk1",
