@@ -23,6 +23,7 @@
 #include <linux/regmap.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 #include <sound/soc.h>
+#include <dsp/q6core.h>
 #include "core.h"
 #include "pdata.h"
 #include "msm-cdc-pinctrl.h"
@@ -1231,11 +1232,22 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	const struct slim_device_id *device_id;
 	int ret = 0;
 	int intf_type;
+	bool wcd_uses_q6_core = false;
 
 	if (!slim)
 		return -EINVAL;
 
 	intf_type = wcd9xxx_get_intf_type();
+
+	if (intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS && slim->dev.of_node) {
+		wcd_uses_q6_core = of_property_read_bool(slim->dev.of_node,
+						"qcom,wcd-uses-q6core");
+
+		if (wcd_uses_q6_core && !q6core_is_platform_ready()) {
+			pr_info("Q6 Core is not ready, delaying WCD probe\n");
+			return -EPROBE_DEFER;
+		}
+	}
 
 	wcd9xxx = devm_kzalloc(&slim->dev, sizeof(struct wcd9xxx),
 				GFP_KERNEL);
