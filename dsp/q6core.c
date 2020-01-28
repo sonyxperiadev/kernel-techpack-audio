@@ -95,6 +95,7 @@ static struct generic_get_data_ *generic_get_data;
 
 static DEFINE_MUTEX(kset_lock);
 static struct kset *audio_uevent_kset;
+static bool q6core_bus_probed = false;
 
 static int q6core_init_uevent_kset(void)
 {
@@ -121,6 +122,11 @@ static void q6core_destroy_uevent_kset(void)
 		kset_unregister(audio_uevent_kset);
 		audio_uevent_kset = NULL;
 	}
+}
+
+bool q6core_is_platform_ready(void)
+{
+	return q6core_bus_probed;
 }
 
 /**
@@ -1567,10 +1573,12 @@ static int q6core_probe(struct platform_device *pdev)
 	}
 
 err:
-	if (rc)
+	if (rc) {
 		dev_err(&pdev->dev, "Q6 Core driver probe failure: %d\n", rc);
-	else
+	} else {
 		dev_info(&pdev->dev, "Q6 Core driver is up\n");
+		q6core_bus_probed = true;
+	}
 
 	return rc;
 }
