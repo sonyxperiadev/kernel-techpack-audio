@@ -20,6 +20,7 @@
 #define AVCS_CMD_ADSP_EVENT_GET_STATE		0x0001290C
 #define AVCS_CMDRSP_ADSP_EVENT_GET_STATE	0x0001290D
 
+bool q6core_is_platform_ready(void);
 bool q6core_is_adsp_ready(void);
 
 int q6core_get_service_version(uint32_t service_id,
