@@ -185,6 +185,9 @@ endif
 obj-$(CONFIG_SND_SOC_QDSP6V2) += platform_dlkm.o
 platform_dlkm-y := $(PLATFORM_OBJS)
 
+obj-$(CONFIG_SND_SOC_MSM8998) += machine_dlkm.o
+machine_dlkm-y := $(MACHINE_OBJS)
+
 obj-$(CONFIG_SND_SOC_MACHINE_SDM845) += machine_dlkm.o
 machine_dlkm-y := $(MACHINE_OBJS)
 
