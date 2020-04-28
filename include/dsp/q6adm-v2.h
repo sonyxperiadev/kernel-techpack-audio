@@ -229,6 +229,8 @@ void msm_dts_srs_acquire_lock(void);
 void msm_dts_srs_release_lock(void);
 void adm_set_native_mode(int mode);
 int adm_set_ffecns_freeze_event(bool ffecns_freeze_event);
+int adm_apr_send_pkt(void *data, wait_queue_head_t *wait,
+			int port_idx, int copp_idx);
 int adm_set_rampup_clipper(int port_id, int copp_idx, uint32_t enable,
 				uint32_t module_id);
 
