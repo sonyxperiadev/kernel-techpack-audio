@@ -106,6 +106,8 @@ config WCD_DSP_GLINK
 	tristate "WCD_DSP_GLINK"
 config MSM_AVTIMER
 	tristate "MSM_AVTIMER"
+config MSM_AVTIMER_LEGACY
+	tristate "MSM_AVTIMER_LEGACY"
 config SND_SOC_SDM660_CDC
 	tristate "SND_SOC_SDM660_CDC"
 config SND_SOC_ANALOG_CDC
