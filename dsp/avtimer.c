@@ -25,7 +25,7 @@
 #include <linux/of.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
-#if IS_ENABLED(CONFIG_AVTIMER_LEGACY)
+#if IS_ENABLED(CONFIG_MSM_AVTIMER_LEGACY)
 #include <media/msmb_isp.h>
 #endif
 #include <ipc/apr.h>
@@ -329,7 +329,7 @@ int avcs_core_query_timer(uint64_t *avtimer_tick)
 }
 EXPORT_SYMBOL(avcs_core_query_timer);
 
-#if IS_ENABLED(CONFIG_AVTIMER_LEGACY)
+#if IS_ENABLED(CONFIG_MSM_AVTIMER_LEGACY)
 static void avcs_set_isp_fptr(bool enable)
 {
 	struct avtimer_fptr_t av_fptr;
