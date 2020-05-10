@@ -108,6 +108,8 @@ config MSM_AVTIMER
 	tristate "MSM_AVTIMER"
 config MSM_AVTIMER_LEGACY
 	tristate "MSM_AVTIMER_LEGACY"
+	depends on MSMB_CAMERA
+	depends on MSM_AVTIMER
 config SND_SOC_SDM660_CDC
 	tristate "SND_SOC_SDM660_CDC"
 config SND_SOC_ANALOG_CDC
