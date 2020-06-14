@@ -3583,6 +3583,9 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				snd_ctl_new1(&avd_drift_config_controls[0],
 					dai));
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				snd_ctl_new1(&sb_config_controls[3],
+					dai_data));
 		break;
 	case SLIMBUS_6_RX:
 		rc = snd_ctl_add(dai->component->card->snd_card,
