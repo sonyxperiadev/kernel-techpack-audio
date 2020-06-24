@@ -694,8 +694,9 @@ correct_plug_type:
 	/*
 	 * Callback to disable BCS slow insertion detection
 	 */
-	if (plug_type == MBHC_PLUG_TYPE_HEADSET ||
-	    plug_type == MBHC_PLUG_TYPE_HEADPHONE)
+	if (mbhc->mbhc_cb->bcs_enable &&
+	    (plug_type == MBHC_PLUG_TYPE_HEADSET ||
+	     plug_type == MBHC_PLUG_TYPE_HEADPHONE))
 		mbhc->mbhc_cb->bcs_enable(mbhc, false);
 
 	timeout = jiffies + msecs_to_jiffies(HS_DETECT_PLUG_TIME_MS);
@@ -841,8 +842,9 @@ correct_plug_type:
 			wrk_complete = false;
 		}
 	}
-	if ((plug_type == MBHC_PLUG_TYPE_HEADSET ||
-	    plug_type == MBHC_PLUG_TYPE_HEADPHONE))
+	if (mbhc->mbhc_cb->bcs_enable &&
+	    (plug_type == MBHC_PLUG_TYPE_HEADSET ||
+	     plug_type == MBHC_PLUG_TYPE_HEADPHONE))
 		mbhc->mbhc_cb->bcs_enable(mbhc, true);
 
 	if (!wrk_complete) {
