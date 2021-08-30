@@ -40,6 +40,13 @@
 #include "codecs/bolero/wsa-macro.h"
 #include "kona-port-config.h"
 
+#ifdef CONFIG_SND_SMARTPA_AW882XX
+ #include "codecs/awinic/aw882xx.h"
+#endif
+#ifdef CONFIG_SND_SOC_FS18XX
+ #include "codecs/foursemi/fsm_public.h"
+#endif
+
 #define DRV_NAME "kona-asoc-snd"
 #define __CHIPSET__ "KONA "
 #define MSM_DAILINK_NAME(name) (__CHIPSET__#name)
@@ -490,7 +497,11 @@ static struct dev_config mi2s_rx_cfg[] = {
 };
 
 static struct dev_config mi2s_tx_cfg[] = {
+#ifdef CONFIG_ARCH_SONY_LENA
+	[PRIM_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
+#else
 	[PRIM_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
+#endif
 	[SEC_MI2S]  = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[TERT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[QUAT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
@@ -5767,7 +5778,11 @@ static void *def_wcd_mbhc_cal(void)
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
 	btn_high[0] = 75;
+#ifdef CONFIG_ARCH_SONY_LENA
+	btn_high[1] = 120;
+#else
 	btn_high[1] = 137;
+#endif
 	btn_high[2] = 237;
 	btn_high[3] = 500;
 	btn_high[4] = 500;
@@ -6314,6 +6329,25 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 };
 
 static struct snd_soc_dai_link msm_bolero_fe_dai_links[] = {
+#if defined(CONFIG_SND_SMARTPA_AW882XX) || defined(CONFIG_SND_SOC_FS18XX)
+	{/* hw:x,33 */
+		.name = "Primary MI2S TX_Hostless",
+		.stream_name = "Primary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "PRI_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+
+#else
+
 	{/* hw:x,33 */
 		.name = LPASS_BE_WSA_CDC_DMA_TX_0,
 		.stream_name = "WSA CDC DMA0 Capture",
@@ -6332,6 +6366,7 @@ static struct snd_soc_dai_link msm_bolero_fe_dai_links[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ops = &msm_cdc_dma_be_ops,
 	},
+#endif
 };
 
 static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
@@ -6428,6 +6463,38 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ops = &msm_cdc_dma_be_ops,
 	},
+#if defined(CONFIG_SND_SMARTPA_AW882XX) || defined(CONFIG_SND_SOC_FS18XX)
+	/* added for audio afe loop */
+	{/* hw:x, 40 */
+		.name = "Primary MI2S RX_Hostless",
+		.stream_name = "Primary MI2S_RX Hostless Playback",
+		.cpu_dai_name = "PRI_MI2S_RX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+						SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	{/* hw:x, 41*/
+		.name = "TX4_CDC_DMA Hostless",
+		.stream_name = "TX4_CDC_DMA Hostless",
+		.cpu_dai_name = "TX4_CDC_DMA_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+#endif
 };
 
 static struct snd_soc_dai_link msm_common_be_dai_links[] = {
@@ -6876,6 +6943,83 @@ static struct snd_soc_dai_link ext_disp_be_dai_link[] = {
 	},
 };
 
+#ifdef CONFIG_SND_SMARTPA_AW882XX
+static struct snd_soc_dai_link_component awinic_codecs[] = {
+	{
+		.of_node = NULL,
+		.dai_name = "aw882xx-aif",
+		.name = "aw882xx_smartpa",
+	},
+};
+
+static struct snd_soc_dai_link msm_mi2s_be_dai_links_aw882xx[] ={
+	{
+		.name = LPASS_BE_PRI_MI2S_RX,
+		.stream_name = "Primary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.num_codecs = ARRAY_SIZE(awinic_codecs),
+		.codecs = awinic_codecs,
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.id = MSM_BACKEND_DAI_PRI_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+	},
+	{
+		.name = LPASS_BE_PRI_MI2S_TX,
+		.stream_name = "Primary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.num_codecs = ARRAY_SIZE(awinic_codecs),
+		.codecs = awinic_codecs,
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.id = MSM_BACKEND_DAI_PRI_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+};
+#endif
+
+#ifdef CONFIG_SND_SOC_FS18XX
+static struct snd_soc_dai_link msm_mi2s_be_dai_links_fsm16xx[] = {
+	{
+		.name = LPASS_BE_PRI_MI2S_RX,
+		.stream_name = "Primary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "fs16xx.0-0034",
+		.codec_dai_name = "fs16xx-aif",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.id = MSM_BACKEND_DAI_PRI_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+	},
+	{
+		.name = LPASS_BE_PRI_MI2S_TX,
+		.stream_name = "Primary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "fs16xx.0-0034",
+		.codec_dai_name = "fs16xx-aif",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.id = MSM_BACKEND_DAI_PRI_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+};
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41
 static int cirrus_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int i;
@@ -6918,6 +7062,7 @@ static struct snd_soc_dai_link_component cirrus_spk[] = {
 		.dai_name = "cs35l41-pcm",
 	},
 };
+#endif
 
 static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 	{
@@ -7070,8 +7215,14 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 		.stream_name = "Senary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.5",
 		.platform_name = "msm-pcm-routing",
+#ifdef CONFIG_SND_SOC_CS35L41
 		.codecs = cirrus_spk,
 		.num_codecs = ARRAY_SIZE(cirrus_spk),
+		.init = cirrus_init,
+#else
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+#endif
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.id = MSM_BACKEND_DAI_SENARY_MI2S_RX,
@@ -7079,15 +7230,19 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 		.ops = &msm_mi2s_be_ops,
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
-		.init = cirrus_init,
 	},
 	{
 		.name = LPASS_BE_SENARY_MI2S_TX,
 		.stream_name = "Senary MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.5",
 		.platform_name = "msm-pcm-routing",
+#ifdef CONFIG_SND_SOC_CS35L41
 		.codecs = cirrus_spk,
 		.num_codecs = ARRAY_SIZE(cirrus_spk),
+#else
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+#endif
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.id = MSM_BACKEND_DAI_SENARY_MI2S_TX,
@@ -7277,6 +7432,7 @@ static struct snd_soc_dai_link msm_auxpcm_be_dai_links[] = {
 };
 
 static struct snd_soc_dai_link msm_wsa_cdc_dma_be_dai_links[] = {
+#if !defined(CONFIG_SND_SMARTPA_AW882XX) && !defined(CONFIG_SND_SOC_FS18XX)
 	/* WSA CDC DMA Backend DAI Links */
 	{
 		.name = LPASS_BE_WSA_CDC_DMA_RX_0,
@@ -7337,6 +7493,7 @@ static struct snd_soc_dai_link msm_wsa_cdc_dma_be_dai_links[] = {
 		.ignore_suspend = 1,
 		.ops = &msm_cdc_dma_be_ops,
 	},
+#endif // !CONFIG_SND_SMARTPA_AW882XX && !CONFIG_SND_SOC_FS18XX
 };
 
 static struct snd_soc_dai_link msm_rx_tx_cdc_dma_be_dai_links[] = {
@@ -7351,7 +7508,9 @@ static struct snd_soc_dai_link msm_rx_tx_cdc_dma_be_dai_links[] = {
 		.dynamic_be = 1,
 		.no_pcm = 1,
 		.dpcm_playback = 1,
+#if !defined(CONFIG_SND_SMARTPA_AW882XX) && !defined(CONFIG_SND_SOC_FS18XX)
 		.init = &msm_int_audrx_init,
+#endif
 		.id = MSM_BACKEND_DAI_RX_CDC_DMA_RX_0,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_pmdown_time = 1,
@@ -7447,6 +7606,9 @@ static struct snd_soc_dai_link msm_va_cdc_dma_be_dai_links[] = {
 		.codec_dai_name = "va_macro_tx1",
 		.no_pcm = 1,
 		.dpcm_capture = 1,
+#if defined(CONFIG_SND_SMARTPA_AW882XX) || defined(CONFIG_SND_SOC_FS18XX)
+		.init = &msm_int_audrx_init,
+#endif
 		.id = MSM_BACKEND_DAI_VA_CDC_DMA_TX_0,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
@@ -7705,6 +7867,34 @@ static const struct of_device_id kona_asoc_machine_of_match[]  = {
 	{},
 };
 
+#ifdef CONFIG_SND_SOC_FS18XX
+static int fsm_update_dai_links(struct snd_soc_dai_link *dailink,
+				int count)
+{
+	fsm_config_t *cfg = fsm_get_config();
+	int i;
+
+	if (!dailink || !cfg || cfg->dev_count <= 0) {
+		pr_info("%s(): not have foursemi device", __func__);
+		return 0;
+	}
+	for (i = 0; i < count; i++) {
+		// TODO:
+		// 1. make sure it had qcom,mi2s-audio-intf; in dts sound card;
+		// 2. replace be_id and cpu_dai_name below by customer
+		if ((MSM_BACKEND_DAI_PRI_MI2S_RX == dailink[i].id
+				|| MSM_BACKEND_DAI_PRI_MI2S_TX  == dailink[i].id)
+				&& !strcmp(dailink[i].cpu_dai_name, "msm-dai-q6-mi2s.0")) {
+			pr_err("%s(): update:%s", __func__, dailink[i].name);
+			dailink[i].codec_dai_name = cfg->codec_dai_name[0];
+			dailink[i].codec_name = cfg->codec_name[0];
+		}
+	}
+
+	return 0;
+}
+#endif
+
 static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 {
 	struct snd_soc_card *card = NULL;
@@ -7775,6 +7965,23 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 				__func__);
 		} else {
 			if (mi2s_audio_intf) {
+#ifdef CONFIG_SND_SMARTPA_AW882XX
+				if (get_aw882xx_i2c_probe_status() == 1) {
+					msm_mi2s_be_dai_links[0] = msm_mi2s_be_dai_links_aw882xx[0];
+					msm_mi2s_be_dai_links[1] = msm_mi2s_be_dai_links_aw882xx[1];
+					goto finalize_mi2s_links;
+				}
+#endif
+#ifdef CONFIG_SND_SOC_FS18XX
+				if (fsm_get_probe_status()) {
+					pr_err("fsm  update msm_mi2s_be_dai_links");
+					msm_mi2s_be_dai_links[0] = msm_mi2s_be_dai_links_fsm16xx[0];
+					msm_mi2s_be_dai_links[1] = msm_mi2s_be_dai_links_fsm16xx[1];
+				}
+#endif
+#ifdef CONFIG_SND_SMARTPA_AW882XX
+finalize_mi2s_links:
+#endif
 				memcpy(msm_kona_dai_links + total_links,
 					msm_mi2s_be_dai_links,
 					sizeof(msm_mi2s_be_dai_links));
@@ -7870,6 +8077,11 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		dailink = msm_stub_dai_links;
 		total_links = len_2;
 	}
+
+#ifdef CONFIG_SND_SOC_FS18XX
+	if(fsm_get_probe_status())
+		fsm_update_dai_links(dailink, total_links);
+#endif
 
 	if (card) {
 		card->dai_link = dailink;
@@ -8325,12 +8537,14 @@ aux_dev_register:
 				aux_cdc_dev_info[i].of_node;
 	}
 
+#ifdef CONFIG_SND_SOC_CS35L41
 	msm_codec_conf[card->num_configs - 2].dev_name = "cs35l41.1-0040";
 	msm_codec_conf[card->num_configs - 2].name_prefix = "L";
 	msm_codec_conf[card->num_configs - 2].of_node = NULL;
 	msm_codec_conf[card->num_configs - 1].dev_name = "cs35l41.1-0041";
 	msm_codec_conf[card->num_configs - 1].name_prefix = "R";
 	msm_codec_conf[card->num_configs - 1].of_node = NULL;
+#endif
 
 	card->codec_conf = msm_codec_conf;
 	card->aux_dev = msm_aux_dev;
@@ -8593,6 +8807,13 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err;
 	}
+
+#ifdef CONFIG_SND_SMARTPA_AW882XX
+	if (get_aw882xx_i2c_probe_status() == 0) {
+		dev_info(&pdev->dev, "%s: aw pa never probe", __func__);
+		return -EPROBE_DEFER;
+	}
+#endif
 
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
