@@ -18,7 +18,6 @@
 #include <linux/regulator/consumer.h>
 static struct regulator *g_fsm_vdd = NULL;
 #endif
-#include <linux/hardware_info.h>  //Date:20200915 Reason: for smart PA  HardwareInfo Author:sunjingtao
 
 int is_fsm_probed = 0 ;  //Date:20200915 Reason: for smart PA  compatible Author:sunjingtao
 
@@ -634,7 +633,6 @@ static int fsm_i2c_probe(struct i2c_client *i2c,
 	}
 
 	is_fsm_probed = 1;
-	get_hardware_info_data(HWID_SMARTPA, "fsm16xx");
 	pr_err("i2c probe completed");
 
 	return 0;
