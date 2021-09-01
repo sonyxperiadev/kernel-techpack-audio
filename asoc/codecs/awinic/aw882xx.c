@@ -32,7 +32,6 @@
 #include <sound/tlv.h>
 #include <sound/control.h>
 #include <linux/uaccess.h>
-#include <linux/hardware_info.h>
 #include "aw882xx.h"
 #include "aw882xx_reg.h"
 #include "awinic_cali.h"
@@ -2113,7 +2112,6 @@ static int aw882xx_i2c_probe(struct i2c_client *i2c,
 	aw882xx->is_power_on = AW882XX_PA_CLOSE_ST;
 	aw_dev_dbg(aw882xx->dev, "%s: probe completed successfully!\n",
 		__func__);
-	get_hardware_info_data(HWID_SMARTPA, "aw882xx");
 	aw_probe_status = 1;
 
 	return 0;
