@@ -16,6 +16,7 @@ include $(srctree)/techpack/audio/config/konaauto.conf
 endif
 ifeq ($(CONFIG_ARCH_SDM660), y)
 include $(srctree)/techpack/audio/config/sdm660auto.conf
+export
 endif
 
 # Use USERINCLUDE when you must reference the UAPI directories only.
