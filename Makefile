@@ -13,3 +13,5 @@ obj-y += soc/
 obj-y += dsp/
 obj-y += ipc/
 obj-y += asoc/
+
+subdir-ccflags-y += -Wno-error=misleading-indentation -Wno-error=maybe-uninitialized -Wno-error=array-parameter
