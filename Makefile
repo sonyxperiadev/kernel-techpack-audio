@@ -57,3 +57,11 @@ obj-y += soc/
 obj-y += dsp/
 obj-y += ipc/
 obj-y += asoc/
+
+
+ccflags_no-error_maybe_uninitialized := $(call cc-option,-Wno-error=maybe-uninitialized)
+ccflags_no-error_misleading_indentation := $(call cc-option,-Wno-error=misleading-indentation)
+ccflags_no-error_restrict := $(call cc-option,-Wno-error=restrict)
+ccflags_no-error_array_bounds := $(call cc-option,-Wno-error=array-bounds)
+
+subdir-ccflags-y := $(ccflags_no-error_array_parameter) $(ccflags_no-error_maybe_uninitialized) $(ccflags_no-error_misleading_indentation) $(ccflags_no-error_restrict) $(ccflags_no-error_array_bounds)
