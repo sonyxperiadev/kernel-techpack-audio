@@ -521,7 +521,7 @@ SND_SOC_DAILINK_DEFS(display_port1,
 
 SND_SOC_DAILINK_DEFS(pri_mi2s_rx,
 	DAILINK_COMP_ARRAY(COMP_CPU("msm-dai-q6-mi2s.0")),
-#if 0
+#if !defined(CONFIG_ARCH_SONY_SAGAMI)
 	DAILINK_COMP_ARRAY(COMP_CODEC("msm-stub-codec.1", "msm-stub-rx")),
 #else
 	DAILINK_COMP_ARRAY(COMP_CODEC("cs40l2x-codec", "cs40l2x-pcm")),

@@ -30575,7 +30575,11 @@ static const struct snd_soc_dapm_route intercon_mi2s[] = {
 	{"QUAT_MI2S_RX", NULL, "QUAT_MI2S_RX_DL_HL"},
 	{"QUIN_MI2S_RX_DL_HL", "Switch", "QUIN_MI2S_DL_HL"},
 	{"QUIN_MI2S_RX", NULL, "QUIN_MI2S_RX_DL_HL"},
-	{"SEN_MI2S_RX_DL_HL", "Switch", "CDC_DMA_DL_HL"}, // should use CDC_DMA_DL_HL replace SEN_MI2S_DL_HL
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+	{"SEN_MI2S_RX_DL_HL", "Switch", "CDC_DMA_DL_HL"},
+#else
+	{"SEN_MI2S_RX_DL_HL", "Switch", "SEN_MI2S_DL_HL"},
+#endif
 	{"SEN_MI2S_RX", NULL, "SEN_MI2S_RX_DL_HL"},
 	{"MI2S_UL_HL", NULL, "TERT_MI2S_TX"},
 	{"INT3_MI2S_UL_HL", NULL, "INT3_MI2S_TX"},
