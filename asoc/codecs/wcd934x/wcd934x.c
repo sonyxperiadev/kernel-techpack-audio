@@ -1714,7 +1714,11 @@ static int tavil_codec_set_i2s_tx_ch(struct snd_soc_dapm_widget *w,
 
 		snd_soc_component_update_bits(component,
 				    WCD934X_DATA_HUB_I2S_TX0_CFG,
+#ifdef CONFIG_ARCH_SONY_TAMA
+				    0x0C, 0x04);
+#else
 				    0x0C, 0x01);
+#endif
 
 		snd_soc_component_update_bits(component,
 				    WCD934X_DATA_HUB_I2S_TX1_0_CFG,
@@ -4080,6 +4084,24 @@ static int tavil_codec_set_idle_detect_thr(struct snd_soc_component *component,
 	return 0;
 }
 
+#ifdef CONFIG_ARCH_SONY_TAMA
+static void tavil_codec_set_offset_val(int *offset_val, int gain_offset,
+				       int mult)
+{
+	switch (gain_offset) {
+	case WCD934X_RX_GAIN_OFFSET_M0P5_DB:
+		*offset_val = 1 * mult;
+		break;
+	case WCD934X_RX_GAIN_OFFSET_M1P5_DB:
+		*offset_val = 2 * mult;
+		break;
+	default:
+		pr_err("Improper gain offset\n");
+		break;
+	}
+}
+#endif
+
 static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 				       struct snd_kcontrol *kcontrol,
 				       int event)
@@ -4115,8 +4137,13 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 		snd_soc_component_update_bits(component, mix_reg, 0x20, 0x20);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
+#ifdef CONFIG_ARCH_SONY_TAMA
+		if ((tavil->swr.spkr_gain_offset !=
+		     WCD934X_RX_GAIN_OFFSET_0_DB) &&
+#else
 		if ((tavil->swr.spkr_gain_offset ==
 		     WCD934X_RX_GAIN_OFFSET_M1P5_DB) &&
+#endif
 		    (tavil->comp_enabled[COMPANDER_7] ||
 		     tavil->comp_enabled[COMPANDER_8]) &&
 		    (gain_reg == WCD934X_CDC_RX7_RX_VOL_MIX_CTL ||
@@ -4133,7 +4160,12 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 			snd_soc_component_update_bits(component,
 					WCD934X_CDC_RX8_RX_PATH_MIX_SEC0,
 					0x01, 0x01);
+#ifdef CONFIG_ARCH_SONY_TAMA
+			tavil_codec_set_offset_val(&offset_val,
+						   tavil->swr.spkr_gain_offset, -1);
+#else
 			offset_val = -2;
+#endif
 		}
 		val = snd_soc_component_read32(component, gain_reg);
 		val += offset_val;
@@ -4148,8 +4180,13 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 		snd_soc_component_update_bits(component, mix_reg, 0x40, 0x40);
 		snd_soc_component_update_bits(component, mix_reg, 0x40, 0x00);
 
+#ifdef CONFIG_ARCH_SONY_TAMA
+		if ((tavil->swr.spkr_gain_offset !=
+		     WCD934X_RX_GAIN_OFFSET_0_DB) &&
+#else
 		if ((tavil->swr.spkr_gain_offset ==
 		     WCD934X_RX_GAIN_OFFSET_M1P5_DB) &&
+#endif
 		    (tavil->comp_enabled[COMPANDER_7] ||
 		     tavil->comp_enabled[COMPANDER_8]) &&
 		    (gain_reg == WCD934X_CDC_RX7_RX_VOL_MIX_CTL ||
@@ -4166,7 +4203,11 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 			snd_soc_component_update_bits(component,
 					WCD934X_CDC_RX8_RX_PATH_MIX_SEC0,
 					0x01, 0x00);
+#ifdef CONFIG_ARCH_SONY_TAMA
+			tavil_codec_set_offset_val(&offset_val,
+						   tavil->swr.spkr_gain_offset, 1);
 			offset_val = 2;
+#endif
 			val = snd_soc_component_read32(component, gain_reg);
 			val += offset_val;
 			snd_soc_component_write(component, gain_reg, val);
@@ -4238,8 +4279,13 @@ static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		/* apply gain after int clk is enabled */
+#ifdef CONFIG_ARCH_SONY_TAMA
+		if ((tavil->swr.spkr_gain_offset !=
+					WCD934X_RX_GAIN_OFFSET_0_DB) &&
+#else
 		if ((tavil->swr.spkr_gain_offset ==
 					WCD934X_RX_GAIN_OFFSET_M1P5_DB) &&
+#endif
 		    (tavil->comp_enabled[COMPANDER_7] ||
 		     tavil->comp_enabled[COMPANDER_8]) &&
 		    (gain_reg == WCD934X_CDC_RX7_RX_VOL_CTL ||
@@ -4256,7 +4302,12 @@ static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 			snd_soc_component_update_bits(component,
 					WCD934X_CDC_RX8_RX_PATH_MIX_SEC0,
 					0x01, 0x01);
+#ifdef CONFIG_ARCH_SONY_TAMA
+			tavil_codec_set_offset_val(&offset_val,
+						   tavil->swr.spkr_gain_offset, -1);
+#else
 			offset_val = -2;
+#endif
 		}
 		val = snd_soc_component_read32(component, gain_reg);
 		val += offset_val;
@@ -4266,8 +4317,13 @@ static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		tavil_codec_enable_interp_clk(component, event, w->shift);
 
+#ifdef CONFIG_ARCH_SONY_TAMA
+		if ((tavil->swr.spkr_gain_offset !=
+					WCD934X_RX_GAIN_OFFSET_0_DB) &&
+#else
 		if ((tavil->swr.spkr_gain_offset ==
 					WCD934X_RX_GAIN_OFFSET_M1P5_DB) &&
+#endif
 		    (tavil->comp_enabled[COMPANDER_7] ||
 		     tavil->comp_enabled[COMPANDER_8]) &&
 		    (gain_reg == WCD934X_CDC_RX7_RX_VOL_CTL ||
@@ -4284,7 +4340,12 @@ static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 			snd_soc_component_update_bits(component,
 					WCD934X_CDC_RX8_RX_PATH_MIX_SEC0,
 					0x01, 0x00);
+#ifdef CONFIG_ARCH_SONY_TAMA
+			tavil_codec_set_offset_val(&offset_val,
+						   tavil->swr.spkr_gain_offset, 1);
+#else
 			offset_val = 2;
+#endif
 			val = snd_soc_component_read32(component, gain_reg);
 			val += offset_val;
 			snd_soc_component_write(component, gain_reg, val);
@@ -9764,6 +9825,9 @@ static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
 	{WCD934X_MICB2_TEST_CTL_1, 0xff, 0xfa},
 	{WCD934X_MICB3_TEST_CTL_1, 0xff, 0xfa},
 	{WCD934X_MICB4_TEST_CTL_1, 0xff, 0xfa},
+#ifdef CONFIG_ARCH_SONY_TAMA
+	{WCD934X_CDC_RX3_RX_PATH_CFG1, 0x64, 0x00},
+#endif
 };
 
 static void tavil_codec_init_reg(struct tavil_priv *priv)
@@ -9796,7 +9860,11 @@ static const struct tavil_reg_mask_val tavil_codec_reg_i2c_defaults[] = {
 	{WCD934X_DATA_HUB_RX2_CFG, 0x03, 0x01},
 	{WCD934X_DATA_HUB_RX3_CFG, 0x03, 0x01},
 	{WCD934X_DATA_HUB_I2S_TX0_CFG, 0x01, 0x01},
+#ifdef CONFIG_ARCH_SONY_TAMA
+	{WCD934X_DATA_HUB_I2S_TX0_CFG, 0x04, 0x04},
+#else
 	{WCD934X_DATA_HUB_I2S_TX0_CFG, 0x04, 0x01},
+#endif
 	{WCD934X_DATA_HUB_I2S_TX1_0_CFG, 0x01, 0x01},
 	{WCD934X_DATA_HUB_I2S_TX1_1_CFG, 0x05, 0x05},
 	{WCD934X_CHIP_TIER_CTRL_ALT_FUNC_EN, 0x1, 0x1},
@@ -11341,7 +11409,11 @@ static int tavil_probe(struct platform_device *pdev)
 	tavil->swr.plat_data.bulk_write = tavil_swrm_bulk_write;
 	tavil->swr.plat_data.clk = tavil_swrm_clock;
 	tavil->swr.plat_data.handle_irq = tavil_swrm_handle_irq;
+#ifdef CONFIG_ARCH_SONY_TAMA
+	tavil->swr.spkr_gain_offset = WCD934X_RX_GAIN_OFFSET_M0P5_DB;
+#else
 	tavil->swr.spkr_gain_offset = WCD934X_RX_GAIN_OFFSET_0_DB;
+#endif
 
 	/* Register for Clock */
 	wcd_ext_clk = clk_get(tavil->wcd9xxx->dev, "wcd_clk");

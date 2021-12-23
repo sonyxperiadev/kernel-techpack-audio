@@ -1240,7 +1240,11 @@ static void wsa881x_init(struct snd_soc_component *component)
 	if (snd_soc_component_read32(component, WSA881X_OTP_REG_0))
 		snd_soc_component_update_bits(component,
 				WSA881X_BOOST_PRESET_OUT1,
+#ifdef CONFIG_ARCH_SONY_TAMA
+				0xFF, 0x7F);
+#else
 				0xF0, 0x70);
+#endif
 	snd_soc_component_update_bits(component, WSA881X_BOOST_PRESET_OUT2,
 			0xF0, 0x30);
 	snd_soc_component_update_bits(component, WSA881X_SPKR_DRV_EN,
