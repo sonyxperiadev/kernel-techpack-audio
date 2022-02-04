@@ -37,6 +37,7 @@
 #include <dt-bindings/sound/audio-codec-port-types.h>
 #include "codecs/bolero/wsa-macro.h"
 #include "codecs/wcd937x/wcd937x.h"
+#include "sm6150-port-config.h"
 
 #define DRV_NAME "sm6150-asoc-snd"
 
@@ -4234,7 +4235,6 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					SNDRV_PCM_HW_PARAM_RATE);
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 
 	int rc = 0;
 	int idx;
@@ -4769,7 +4769,7 @@ static int msm_audrx_tavil_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_component *aux_comp;
-	struct snd_card *card = rtd->card->snd_card;
+	struct snd_card *card;
 	struct snd_info_entry *entry;
 	struct msm_asoc_mach_data *pdata =
 				snd_soc_card_get_drvdata(rtd->card);
@@ -4888,6 +4888,9 @@ static int msm_audrx_tavil_init(struct snd_soc_pcm_runtime *rtd)
 			tavil_set_spkr_gain_offset(component,
 					WCD934X_RX_GAIN_OFFSET_M1P5_DB);
 		}
+
+		bolero_set_port_map(component, ARRAY_SIZE(sm_port_map),
+				sm_port_map);
 	}
 
 	card = rtd->card->snd_card;
@@ -5066,6 +5069,9 @@ static int msm_audrx_tasha_init(struct snd_soc_pcm_runtime *rtd)
 			tasha_set_spkr_gain_offset(component,
 					RX_GAIN_OFFSET_M1P5_DB);
 		}
+
+		bolero_set_port_map(component, ARRAY_SIZE(sm_port_map),
+				sm_port_map);
 	}
 
 	card = rtd->card->snd_card;
@@ -5098,7 +5104,6 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_component *aux_comp;
 	struct msm_asoc_mach_data *pdata =
 				snd_soc_card_get_drvdata(rtd->card);
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 
 	component = snd_soc_rtdcom_lookup(rtd, "bolero_codec");
 	if (!component) {
@@ -5161,7 +5166,11 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
 				break;
 			}
 		}
+
+		bolero_set_port_map(component, ARRAY_SIZE(sm_port_map),
+				sm_port_map);
 	}
+
 	card = rtd->card->snd_card;
 	if (!pdata->codec_root) {
 		entry = snd_info_create_subdir(card->module, "codecs",
@@ -5174,7 +5183,7 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		}
 		pdata->codec_root = entry;
 	}
-	bolero_info_create_codec_entry(pdata->codec_root, codec);
+	bolero_info_create_codec_entry(pdata->codec_root, component);
 	/*
 	 * SM6150 MSM 1.0 doesn't have hardware wake up interrupt line
 	 * from AOSS to APSS. So, it uses SW workaround and listens to
