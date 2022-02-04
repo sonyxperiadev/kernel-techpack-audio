@@ -8,6 +8,9 @@ endif
 ifeq ($(CONFIG_ARCH_SDMSHRIKE), y)
 include $(srctree)/techpack/audio/config/sm8150auto.conf
 endif
+ifeq ($(CONFIG_ARCH_TRINKET), y)
+include $(srctree)/techpack/audio/config/sm6150auto.conf
+endif
 ifeq ($(CONFIG_ARCH_KONA), y)
 include $(srctree)/techpack/audio/config/konaauto.conf
 endif
@@ -43,6 +46,10 @@ endif
 ifeq ($(CONFIG_ARCH_SDMSHRIKE), y)
 LINUXINCLUDE    += \
                 -include $(srctree)/techpack/audio/config/sm8150autoconf.h
+endif
+ifeq ($(CONFIG_ARCH_TRINKET), y)
+LINUXINCLUDE    += \
+                -include $(srctree)/techpack/audio/config/sm6150autoconf.h
 endif
 ifeq ($(CONFIG_ARCH_KONA), y)
 LINUXINCLUDE    += \
