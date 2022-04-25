@@ -26,11 +26,6 @@ TARGET := trinket
 AUDIO_SELECT  := CONFIG_SND_SOC_SM6150=m
 endif
 
-ifeq ($(call is-board-platform,kona),true)
-TARGET := kona
-AUDIO_SELECT  := CONFIG_SND_SOC_KONA=m
-endif
-
 ifeq ($(call is-board-platform,lito),true)
 TARGET := lito
 AUDIO_SELECT  := CONFIG_SND_SOC_LITO=m
@@ -53,7 +48,7 @@ AUDIO_SELECT  := CONFIG_SND_SOC_SDM845=m
 endif
 AUDIO_CHIPSET := audio
 # Build/Package only in case of supported target
-ifeq ($(call is-board-platform-in-list,msmnile $(MSMSTEPPE) $(TRINKET) kona lito bengal sdmshrike sdm660 sdm845),true)
+ifeq ($(call is-board-platform-in-list,msmnile $(MSMSTEPPE) $(TRINKET) lito bengal sdmshrike sdm660 sdm845),true)
 
 LOCAL_PATH := $(call my-dir)
 

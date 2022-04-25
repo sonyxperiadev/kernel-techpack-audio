@@ -3,17 +3,13 @@
 # Assume no targets will be supported
 
 # Check if this driver needs be built for current target
-ifeq ($(call is-board-platform,kona),true)
-AUDIO_SELECT  := CONFIG_SND_SOC_KONA=m
-endif
-
 ifeq ($(call is-board-platform,lito),true)
 AUDIO_SELECT  := CONFIG_SND_SOC_LITO=m
 endif
 
 AUDIO_CHIPSET := audio
 # Build/Package only in case of supported target
-ifeq ($(call is-board-platform-in-list,kona lito),true)
+ifeq ($(call is-board-platform-in-list,lito),true)
 
 LOCAL_PATH := $(call my-dir)
 
