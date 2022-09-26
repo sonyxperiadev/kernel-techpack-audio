@@ -128,7 +128,6 @@ ifdef CONFIG_WCD9XXX_CODEC_CORE
 	CORE_OBJS += wcd9xxx-core-init.o
 	CORE_OBJS += wcd9xxx-core.o
 	CORE_OBJS += wcd9xxx-irq.o
-	CORE_OBJS += wcd9xxx-slimslave.o
 	CORE_OBJS += wcd9xxx-utils.o
 	CORE_OBJS += wcd9335-regmap.o
 	CORE_OBJS += wcd9335-tables.o
@@ -136,6 +135,9 @@ ifdef CONFIG_WCD9XXX_CODEC_CORE
 	CORE_OBJS += msm-cdc-supply.o
 	CORE_OBJS += wcd934x/wcd934x-regmap.o
 	CORE_OBJS += wcd934x/wcd934x-tables.o
+ifndef CONFIG_SND_SOC_SDX
+	CORE_OBJS += wcd9xxx-slimslave.o
+endif
 endif
 
 ifdef CONFIG_WCD9XXX_CODEC_CORE_V2
@@ -148,8 +150,10 @@ ifdef CONFIG_SND_SOC_WCD9XXX_V2
 ifdef CONFIG_WCD9XXX_CODEC_CORE
 	WCD9XXX_OBJS += wcd9xxx-common-v2.o
 	WCD9XXX_OBJS += wcd9xxx-resmgr-v2.o
+ifndef CONFIG_SND_SOC_SDX
 	WCD9XXX_OBJS += wcd-dsp-utils.o
 	WCD9XXX_OBJS += wcd-dsp-mgr.o
+endif
 else
 	WCD9XXX_OBJS += wcd-clsh.o
 endif
