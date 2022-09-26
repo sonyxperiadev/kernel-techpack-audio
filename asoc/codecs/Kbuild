@@ -95,6 +95,11 @@ ifeq ($(KERNEL_BUILD), 0)
 		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/sdxlemurautoconf.h
 	endif
+	ifeq ($(CONFIG_ARCH_SDXPINN), y)
+		include $(AUDIO_ROOT)/config/sdxpinnauto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdxpinnautoconf.h
+	endif
 endif
 endif
 
