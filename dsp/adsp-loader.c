@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2014, 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -131,6 +132,7 @@ static void adsp_load_fw(struct work_struct *adsp_ldr_work)
 		}
 
 		dev_dbg(&pdev->dev, "%s: Q6/MDSP image is loaded\n", __func__);
+		return;
 	}
 
 load_adsp:
