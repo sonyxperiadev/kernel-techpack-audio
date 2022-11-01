@@ -16,6 +16,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <linux/soc/qcom/battery_charger.h>
+#include <dsp/digital-cdc-rsc-mgr.h>
 
 #define HAPTICS_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 		SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000 |\
@@ -704,7 +705,7 @@ static int swr_haptics_suspend(struct device *dev)
 		dev_err_ratelimited(dev, "%s: no data for swr_hap\n", __func__);
 		return -ENODEV;
 	}
-	trace_printk("%s: suspended\n", __func__);
+	TRACE_PRINTK("%s: suspended\n", __func__);
 
 	return rc;
 }
@@ -719,7 +720,7 @@ static int swr_haptics_resume(struct device *dev)
 		dev_err_ratelimited(dev, "%s: no data for swr_hap\n", __func__);
 		return -ENODEV;
 	}
-	trace_printk("%s: resumed\n", __func__);
+	TRACE_PRINTK("%s: resumed\n", __func__);
 
 	return rc;
 }

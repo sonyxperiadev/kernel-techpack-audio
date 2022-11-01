@@ -36,7 +36,7 @@ int digital_cdc_rsc_mgr_hw_vote_enable(struct clk *vote_handle, struct device *d
 	mutex_unlock(&hw_vote_lock);
 
 	dev_dbg(dev, "%s: return %d\n", __func__, ret);
-	trace_printk("%s: return %d\n", __func__, ret);
+	TRACE_PRINTK("%s: return %d\n", __func__, ret);
 	return ret;
 }
 EXPORT_SYMBOL(digital_cdc_rsc_mgr_hw_vote_enable);
@@ -60,7 +60,7 @@ void digital_cdc_rsc_mgr_hw_vote_disable(struct clk *vote_handle, struct device 
 	clk_disable_unprepare(vote_handle);
 	mutex_unlock(&hw_vote_lock);
 	dev_dbg(dev, "%s: leave\n", __func__);
-	trace_printk("%s\n", __func__);
+	TRACE_PRINTK("%s\n", __func__);
 }
 EXPORT_SYMBOL(digital_cdc_rsc_mgr_hw_vote_disable);
 
@@ -84,7 +84,7 @@ void digital_cdc_rsc_mgr_hw_vote_reset(struct clk* vote_handle)
 		count++;
 	}
 	pr_debug("%s: Vote count after SSR: %d\n", __func__, count);
-	trace_printk("%s: Vote count after SSR: %d\n", __func__, count);
+	TRACE_PRINTK("%s: Vote count after SSR: %d\n", __func__, count);
 
 	while (count--)
 		clk_prepare_enable(vote_handle);

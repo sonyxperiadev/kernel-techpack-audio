@@ -9,6 +9,17 @@
 
 #include <linux/clk.h>
 
+#ifdef CONFIG_AUDIO_TRACE_PRINTK
+#define TRACE_PRINTK(fmt, ...)				\
+do {						\
+	trace_printk(fmt, ##__VA_ARGS__); \
+} while (0)
+#else
+#define TRACE_PRINTK(fmt, ...)				\
+do {							\
+} while (0)
+#endif
+
 #ifdef CONFIG_DIGITAL_CDC_RSC_MGR
 
 int digital_cdc_rsc_mgr_hw_vote_enable(struct clk *vote_handle, struct device *dev);
