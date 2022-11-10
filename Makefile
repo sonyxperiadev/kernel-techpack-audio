@@ -1,5 +1,4 @@
-M=$(PWD)
-AUDIO_ROOT=$(KERNEL_SRC)/$(M)
+AUDIO_ROOT=$(srctree)/techpack/audio
 
 KBUILD_OPTIONS+=  AUDIO_ROOT=$(AUDIO_ROOT)
 

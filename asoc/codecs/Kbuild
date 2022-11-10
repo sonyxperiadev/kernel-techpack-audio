@@ -1,17 +1,4 @@
-# We can build either as part of a standalone Kernel build or as
-# an external module.  Determine which mechanism is being used
-ifeq ($(MODNAME),)
-	KERNEL_BUILD := 1
-else
-	KERNEL_BUILD := 0
-endif
-
-ifeq ($(KERNEL_BUILD), 1)
-	# These are configurable via Kconfig for kernel-based builds
-	# Need to explicitly configure for Android-based builds
-	AUDIO_BLD_DIR := $(shell pwd)/kernel/msm-5.4
-	AUDIO_ROOT := $(AUDIO_BLD_DIR)/techpack/audio
-endif
+AUDIO_ROOT=$(srctree)/techpack/audio
 
 ifeq ($(CONFIG_SND_SOC_AUTO), y)
 	ifdef CONFIG_SND_SOC_SA8155
@@ -25,7 +12,6 @@ ifeq ($(CONFIG_SND_SOC_AUTO), y)
 		INCS    +=  -include $(AUDIO_ROOT)/config/sa6155autoconf.h
 	endif
 else
-ifeq ($(KERNEL_BUILD), 0)
 	ifeq ($(CONFIG_ARCH_SM8150), y)
 		ifdef CONFIG_SND_SOC_SA8155
 			include $(AUDIO_ROOT)/config/sa8155auto.conf
@@ -95,7 +81,6 @@ ifeq ($(KERNEL_BUILD), 0)
 		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/sdxlemurautoconf.h
 	endif
-endif
 endif
 
 # As per target team, build is done as follows:
@@ -251,15 +236,6 @@ ifeq ($(call cc-option-yn, -Wheader-guard),y)
 EXTRA_CFLAGS += -Wheader-guard
 endif
 
-ifeq ($(KERNEL_BUILD), 1)
-	obj-y	+= wcd934x/
-	obj-y	+= wcd937x/
-	obj-y	+= wcd938x/
-	obj-y	+= bolero/
-	obj-y	+= lpass-cdc/
-	obj-y	+= wsa883x/
-	obj-y	+= rouleur/
-endif
 # Module information used by KBuild framework
 obj-$(CONFIG_WCD9XXX_CODEC_CORE) += wcd_core_dlkm.o
 obj-$(CONFIG_WCD9XXX_CODEC_CORE_V2) += wcd_core_dlkm.o

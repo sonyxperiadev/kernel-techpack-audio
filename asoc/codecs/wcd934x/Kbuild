@@ -1,46 +1,29 @@
-# We can build either as part of a standalone Kernel build or as
-# an external module.  Determine which mechanism is being used
-ifeq ($(MODNAME),)
-	KERNEL_BUILD := 1
-else
-	KERNEL_BUILD := 0
+AUDIO_ROOT=$(srctree)/techpack/audio
+
+ifeq ($(CONFIG_ARCH_SM6150), y)
+	include $(AUDIO_ROOT)/config/sm6150auto.conf
+	export
+	INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
 endif
-
-
-
-ifeq ($(KERNEL_BUILD), 1)
-	# These are configurable via Kconfig for kernel-based builds
-	# Need to explicitly configure for Android-based builds
-	AUDIO_BLD_DIR := $(shell pwd)/kernel/msm-5.4
-	AUDIO_ROOT := $(AUDIO_BLD_DIR)/techpack/audio
+ifeq ($(CONFIG_ARCH_TRINKET), y)
+	include $(AUDIO_ROOT)/config/sm6150auto.conf
+	export
+	INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
 endif
-
-ifeq ($(KERNEL_BUILD), 0)
-	ifeq ($(CONFIG_ARCH_SM6150), y)
-		include $(AUDIO_ROOT)/config/sm6150auto.conf
-		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
-	endif
-	ifeq ($(CONFIG_ARCH_TRINKET), y)
-		include $(AUDIO_ROOT)/config/sm6150auto.conf
-		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
-	endif
-	ifeq ($(CONFIG_ARCH_SM8150), y)
-		include $(AUDIO_ROOT)/config/sm8150auto.conf
-		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
-	endif
-	ifeq ($(CONFIG_ARCH_SDMSHRIKE), y)
-		include $(AUDIO_ROOT)/config/sm8150auto.conf
-		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
-	endif
-	ifeq ($(CONFIG_ARCH_SDXLEMUR), y)
-		include $(AUDIO_ROOT)/config/sdxlemurauto.conf
-		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/sdxlemurautoconf.h
-	endif
+ifeq ($(CONFIG_ARCH_SM8150), y)
+	include $(AUDIO_ROOT)/config/sm8150auto.conf
+	export
+	INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
+endif
+ifeq ($(CONFIG_ARCH_SDMSHRIKE), y)
+	include $(AUDIO_ROOT)/config/sm8150auto.conf
+	export
+	INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
+endif
+ifeq ($(CONFIG_ARCH_SDXLEMUR), y)
+	include $(AUDIO_ROOT)/config/sdxlemurauto.conf
+	export
+	INCS    +=  -include $(AUDIO_ROOT)/config/sdxlemurautoconf.h
 endif
 
 # As per target team, build is done as follows:
@@ -109,14 +92,6 @@ endif
 
 ifeq ($(call cc-option-yn, -Wheader-guard),y)
 EXTRA_CFLAGS += -Wheader-guard
-endif
-
-ifeq ($(KERNEL_BUILD), 0)
-KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/ipc/Module.symvers
-KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/dsp/Module.symvers
-KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/Module.symvers
-KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/Module.symvers
-KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/soc/Module.symvers
 endif
 
 # Module information used by KBuild framework

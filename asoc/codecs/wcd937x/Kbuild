@@ -1,49 +1,32 @@
-# We can build either as part of a standalone Kernel build or as
-# an external module.  Determine which mechanism is being used
-ifeq ($(MODNAME),)
-	KERNEL_BUILD := 1
-else
-	KERNEL_BUILD := 0
+AUDIO_ROOT=$(srctree)/techpack/audio
+
+ifeq ($(CONFIG_ARCH_SM6150), y)
+	include $(AUDIO_ROOT)/config/sm6150auto.conf
+	export
+	INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
 endif
-
-
-
-ifeq ($(KERNEL_BUILD), 1)
-	# These are configurable via Kconfig for kernel-based builds
-	# Need to explicitly configure for Android-based builds
-	AUDIO_BLD_DIR := $(ANDROID_BUILD_TOP)/kernel/msm-5.4
-	AUDIO_ROOT := $(AUDIO_BLD_DIR)/techpack/audio
+ifeq ($(CONFIG_ARCH_TRINKET), y)
+	include $(AUDIO_ROOT)/config/sm6150auto.conf
+	export
+	INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
+	endif
+ifeq ($(CONFIG_ARCH_BENGAL), y)
+	include $(AUDIO_ROOT)/config/bengalauto.conf
+	export
+	INCS    +=  -include $(AUDIO_ROOT)/config/bengalautoconf.h
 endif
-
-ifeq ($(KERNEL_BUILD), 0)
-	ifeq ($(CONFIG_ARCH_SM6150), y)
-		include $(AUDIO_ROOT)/config/sm6150auto.conf
-		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
-	endif
-	ifeq ($(CONFIG_ARCH_TRINKET), y)
-		include $(AUDIO_ROOT)/config/sm6150auto.conf
-		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
-	endif
-	ifeq ($(CONFIG_ARCH_BENGAL), y)
-		include $(AUDIO_ROOT)/config/bengalauto.conf
-		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/bengalautoconf.h
-	endif
-	ifeq ($(CONFIG_ARCH_LITO), y)
-		include $(AUDIO_ROOT)/config/litoauto.conf
-		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/litoautoconf.h
-	endif
-	ifeq ($(CONFIG_ARCH_WAIPIO), y)
-		include $(AUDIO_ROOT)/config/waipioauto.conf
-		INCS    +=  -include $(AUDIO_ROOT)/config/waipioautoconf.h
-	endif
-	ifeq ($(CONFIG_ARCH_PARROT), y)
-		include $(AUDIO_ROOT)/config/waipioauto.conf
-		INCS    +=  -include $(AUDIO_ROOT)/config/waipioautoconf.h
-	endif
+ifeq ($(CONFIG_ARCH_LITO), y)
+	include $(AUDIO_ROOT)/config/litoauto.conf
+	export
+	INCS    +=  -include $(AUDIO_ROOT)/config/litoautoconf.h
+endif
+ifeq ($(CONFIG_ARCH_WAIPIO), y)
+	include $(AUDIO_ROOT)/config/waipioauto.conf
+	INCS    +=  -include $(AUDIO_ROOT)/config/waipioautoconf.h
+endif
+ifeq ($(CONFIG_ARCH_PARROT), y)
+	include $(AUDIO_ROOT)/config/waipioauto.conf
+	INCS    +=  -include $(AUDIO_ROOT)/config/waipioautoconf.h
 endif
 
 # As per target team, build is done as follows:
