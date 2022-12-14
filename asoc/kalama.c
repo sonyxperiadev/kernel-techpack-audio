@@ -206,6 +206,9 @@ static void msm_set_upd_config(struct snd_soc_pcm_runtime *rtd)
 					"wsa-codec.1");
 				return;
 			}
+		} else {
+			pr_err("%s wsa_max_devs are NULL\n", __func__);
+			return;
 		}
 	} else {
 		component = snd_soc_rtdcom_lookup(rtd, WCD938X_DRV_NAME);
