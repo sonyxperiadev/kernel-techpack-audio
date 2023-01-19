@@ -373,7 +373,7 @@ static int lpass_cdc_va_macro_event_handler(struct snd_soc_component *component,
 		lpass_cdc_va_macro_core_vote(va_priv, false);
 		break;
 	case LPASS_CDC_MACRO_EVT_SSR_UP:
-		trace_printk("%s, enter SSR up\n", __func__);
+		TRACE_PRINTK("%s, enter SSR up\n", __func__);
 		/* reset swr after ssr/pdr */
 		va_priv->reset_swr = true;
 		va_priv->dev_up = true;
@@ -450,14 +450,7 @@ static int lpass_cdc_va_macro_swr_pwr_event(struct snd_soc_dapm_widget *w,
 					 &va_priv, __func__))
 		return -EINVAL;
 
-	if (!va_priv->use_lpi_mixer_control)
-		return 0;
-
-	dev_dbg(va_dev, "%s: event = %d, lpi_enable = %d\n",
-		__func__, event, va_priv->lpi_enable);
-
-	if (!va_priv->lpi_enable)
-		return ret;
+	dev_dbg(va_dev, "%s: event = %d\n",__func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -780,7 +773,7 @@ static int lpass_cdc_va_macro_core_vote(void *handle, bool enable)
 		return -EINVAL;
 	}
 
-	trace_printk("%s, enter: enable %d\n", __func__, enable);
+	TRACE_PRINTK("%s, enter: enable %d\n", __func__, enable);
 	if (enable) {
 		pm_runtime_get_sync(va_priv->dev);
 		if (lpass_cdc_check_core_votes(va_priv->dev)) {
@@ -792,7 +785,7 @@ static int lpass_cdc_va_macro_core_vote(void *handle, bool enable)
 		pm_runtime_put_autosuspend(va_priv->dev);
 		pm_runtime_mark_last_busy(va_priv->dev);
 	}
-	trace_printk("%s, leave\n", __func__);
+	TRACE_PRINTK("%s, leave\n", __func__);
 	return rc;
 }
 
