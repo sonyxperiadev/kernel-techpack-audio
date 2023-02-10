@@ -6,7 +6,7 @@ ifeq ($(call is-board-platform, taro),true)
 AUDIO_SELECT  := CONFIG_SND_SOC_WAIPIO=m
 endif
 
-ifeq ($(call is-board-platform, kalama),true)
+ifeq ($(call is-board-platform, kalama crow),true)
 AUDIO_SELECT  := CONFIG_SND_SOC_KALAMA=m
 endif
 
@@ -22,7 +22,7 @@ BOARD_OPENSOURCE_DIR ?= vendor/qcom/opensource
 BOARD_COMMON_DIR ?= device/qcom/common
 
 # Build/Package only in case of supported target
-ifeq ($(call is-board-platform-in-list,taro kalama bengal), true)
+ifeq ($(call is-board-platform-in-list,taro kalama bengal crow), true)
 
 # This makefile is only for DLKM
 ifneq ($(findstring vendor,$(LOCAL_PATH)),)
