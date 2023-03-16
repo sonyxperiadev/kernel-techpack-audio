@@ -117,6 +117,7 @@ static int msm_audio_ion_map_kernel(struct dma_buf *dma_buf,
 	if (rc) {
 		pr_err("%s: kernel mapping of dma_buf failed\n",
 		       __func__);
+		dma_buf_end_cpu_access(dma_buf, DMA_BIDIRECTIONAL);
 		goto exit;
 	}
 
@@ -202,6 +203,7 @@ static int msm_audio_dma_buf_map(struct dma_buf *dma_buf,
 		alloc_data->vmap = dma_vmap;
 	} else {
 		*addr = MSM_AUDIO_ION_PHYS_ADDR(alloc_data);
+		kfree(dma_vmap);
 	}
 
 	msm_audio_ion_add_allocation(ion_data, alloc_data);
@@ -448,11 +450,12 @@ int msm_audio_get_phy_addr(int fd, dma_addr_t *paddr, size_t *pa_len)
 }
 EXPORT_SYMBOL(msm_audio_get_phy_addr);
 
-int msm_audio_set_hyp_assign(int fd, bool assign)
+static int msm_audio_set_hyp_assign(int fd, bool assign)
 {
 	struct msm_audio_fd_data *msm_audio_fd_data = NULL;
 	int status = -EINVAL;
 	pr_debug("%s, fd %d\n", __func__, fd);
+
 	mutex_lock(&(msm_audio_ion_fd_list.list_mutex));
 	list_for_each_entry(msm_audio_fd_data,
 			&msm_audio_ion_fd_list.fd_list, list) {
@@ -587,7 +590,8 @@ static int msm_audio_ion_free(struct dma_buf *dma_buf, struct msm_audio_ion_priv
 	return 0;
 }
 
-int msm_audio_hyp_unassign(struct msm_audio_fd_data *msm_audio_fd_data) {
+static int msm_audio_hyp_unassign(struct msm_audio_fd_data *msm_audio_fd_data)
+{
 	int ret = 0;
 	int dest_perms_unmap[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 	int source_vm_unmap[3] = {VMID_LPASS, VMID_ADSP_HEAP, VMID_HLOS};
