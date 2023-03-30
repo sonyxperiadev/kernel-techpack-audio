@@ -634,6 +634,11 @@ static void msm_audio_add_qos_request(void)
 		if (audio_core_list[i] >= num_possible_cpus())
 			pr_err("%s incorrect cpu id: %d specified.\n",
                                     __func__, audio_core_list[i]);
+		else if (!cpu_possible(audio_core_list[i])) {
+			pr_err("%s cpu id: %d is not possible\n",
+				__func__, audio_core_list[i]);
+			continue;
+		}
 		else
 			cpumask_set_cpu(audio_core_list[i], &audio_cpu_map);
 	}
