@@ -145,7 +145,11 @@ GPRV_GLINK += gpr-lite.o
 endif
 
 ifdef CONFIG_AUDIO_PKT
+ifdef CONFIG_SND_SOC_PCIE
+AUDIO_PKT += audio-pcie-pkt.o
+else
 AUDIO_PKT += audio-pkt.o
+endif
 endif
 
 LINUX_INC += -Iinclude/linux
