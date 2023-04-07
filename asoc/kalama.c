@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022. Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023. Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -92,9 +92,12 @@ static int dmic_6_7_gpio_cnt;
 static void *def_wcd_mbhc_cal(void);
 
 static int msm_rx_tx_codec_init(struct snd_soc_pcm_runtime*);
+#if !IS_ENABLED(CONFIG_SND_SOC_PCIE)
 static int msm_int_wsa_init(struct snd_soc_pcm_runtime*);
 static int msm_int_wsa884x_init(struct snd_soc_pcm_runtime*);
 static int msm_int_wsa883x_init(struct snd_soc_pcm_runtime*);
+static int msm_wcn_init(struct snd_soc_pcm_runtime *rtd);
+#endif
 
 /*
  * Need to report LINEIN
@@ -383,22 +386,6 @@ static const struct snd_soc_dapm_widget msm_int_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic7", NULL),
 };
 
-static int msm_wcn_init(struct snd_soc_pcm_runtime *rtd)
-{
-	unsigned int rx_ch[WCN_CDC_SLIM_RX_CH_MAX] = {157, 158};
-	unsigned int tx_ch[WCN_CDC_SLIM_TX_CH_MAX]  = {159, 160};
-	struct snd_soc_dai *codec_dai = asoc_rtd_to_codec(rtd, 0);
-    int ret = 0;
-
-	ret = snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
-					   tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
-	if (ret)
-		return ret;
-
-	msm_common_dai_link_init(rtd);
-    return ret;
-}
-
 static struct snd_info_entry *msm_snd_info_create_subdir(struct module *mod,
 				const char *name,
 				struct snd_info_entry *parent)
@@ -517,6 +504,21 @@ static struct snd_soc_dai_link msm_swr_haptics_be_dai_links[] = {
 	},
 };
 
+static struct snd_soc_dai_link ext_disp_be_dai_link[] = {
+	/* DISP PORT BACK END DAI Link */
+	{
+		.name = LPASS_BE_DISPLAY_PORT_RX,
+		.stream_name = LPASS_BE_DISPLAY_PORT_RX,
+		.playback_only = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(display_port),
+	},
+};
+
+#if !IS_ENABLED(CONFIG_SND_SOC_PCIE)
 static struct snd_soc_dai_link msm_wcn_be_dai_links[] = {
 	{
 		.name = LPASS_BE_SLIMBUS_7_RX,
@@ -540,20 +542,6 @@ static struct snd_soc_dai_link msm_wcn_be_dai_links[] = {
 		.ops = &msm_common_be_ops,
 		.ignore_suspend = 1,
 		SND_SOC_DAILINK_REG(slimbus_7_tx),
-	},
-};
-
-static struct snd_soc_dai_link ext_disp_be_dai_link[] = {
-	/* DISP PORT BACK END DAI Link */
-	{
-		.name = LPASS_BE_DISPLAY_PORT_RX,
-		.stream_name = LPASS_BE_DISPLAY_PORT_RX,
-		.playback_only = 1,
-		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
-			SND_SOC_DPCM_TRIGGER_POST},
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1,
-		SND_SOC_DAILINK_REG(display_port),
 	},
 };
 
@@ -732,6 +720,7 @@ static struct snd_soc_dai_link msm_wsa_wsa2_cdc_dma_be_dai_links[] = {
 		SND_SOC_DAILINK_REG(wsa_wsa2_cps_feedback),
 	},
 };
+#endif //!CONFIG_SND_SOC_PCIE
 
 static struct snd_soc_dai_link msm_rx_tx_cdc_dma_be_dai_links[] = {
 	/* RX CDC DMA Backend DAI Links */
@@ -1159,14 +1148,16 @@ static struct snd_soc_dai_link msm_tdm_dai_links[] = {
 };
 
 static struct snd_soc_dai_link msm_kalama_dai_links[
+#if !IS_ENABLED(CONFIG_SND_SOC_PCIE)
 			ARRAY_SIZE(msm_wsa_cdc_dma_be_dai_links) +
 			ARRAY_SIZE(msm_wsa2_cdc_dma_be_dai_links) +
 			ARRAY_SIZE(msm_wsa_wsa2_cdc_dma_be_dai_links) +
+			ARRAY_SIZE(msm_wcn_be_dai_links) +
+#endif //!CONFIG_SND_SOC_PCIE
 			ARRAY_SIZE(msm_rx_tx_cdc_dma_be_dai_links) +
 			ARRAY_SIZE(msm_va_cdc_dma_be_dai_links) +
 			ARRAY_SIZE(ext_disp_be_dai_link) +
 			ARRAY_SIZE(msm_common_be_dai_links) +
-			ARRAY_SIZE(msm_wcn_be_dai_links) +
 			ARRAY_SIZE(msm_mi2s_dai_links) +
 			ARRAY_SIZE(msm_tdm_dai_links)];
 
@@ -1398,12 +1389,15 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev, int w
 		switch (wsa_max_devs) {
 		case MONO_SPEAKER:
 		case STEREO_SPEAKER:
+#if !IS_ENABLED(CONFIG_SND_SOC_PCIE)
 			memcpy(msm_kalama_dai_links + total_links,
 			       msm_wsa_cdc_dma_be_dai_links,
 			       sizeof(msm_wsa_cdc_dma_be_dai_links));
 			total_links += ARRAY_SIZE(msm_wsa_cdc_dma_be_dai_links);
+#endif //!CONFIG_SND_SOC_PCIE
 			break;
 		case QUAD_SPEAKER:
+#if !IS_ENABLED(CONFIG_SND_SOC_PCIE)
 			memcpy(msm_kalama_dai_links + total_links,
 			       msm_wsa2_cdc_dma_be_dai_links,
 			       sizeof(msm_wsa2_cdc_dma_be_dai_links));
@@ -1413,6 +1407,7 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev, int w
 			       msm_wsa_wsa2_cdc_dma_be_dai_links,
 			       sizeof(msm_wsa_wsa2_cdc_dma_be_dai_links));
 			total_links += ARRAY_SIZE(msm_wsa_wsa2_cdc_dma_be_dai_links);
+#endif //!CONFIG_SND_SOC_PCIE
 			break;
 		default:
 			dev_dbg(dev,
@@ -1464,10 +1459,12 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev, int w
 		if (!rc && val) {
 			dev_dbg(dev, "%s(): WCN BT support present\n",
 				__func__);
+#if !IS_ENABLED(CONFIG_SND_SOC_PCIE)
 			memcpy(msm_kalama_dai_links + total_links,
 			       msm_wcn_be_dai_links,
 			       sizeof(msm_wcn_be_dai_links));
 			total_links += ARRAY_SIZE(msm_wcn_be_dai_links);
+#endif //!CONFIG_SND_SOC_PCIE
 		}
 		if (of_find_property(dev->of_node, "swr-haptics-unsupported",
 					NULL)) {
@@ -1501,6 +1498,7 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev, int w
 	return card;
 }
 
+#if !IS_ENABLED(CONFIG_SND_SOC_PCIE)
 static int msm_int_wsa883x_init(struct snd_soc_pcm_runtime *rtd)
 {
 	u8 spkleft_ports[WSA883X_MAX_SWR_PORTS] = {0, 1, 2, 3};
@@ -1673,6 +1671,23 @@ static int msm_int_wsa_init(struct snd_soc_pcm_runtime *rtd)
 
 	return msm_int_wsa884x_init(rtd);
 }
+
+static int msm_wcn_init(struct snd_soc_pcm_runtime *rtd)
+{
+	unsigned int rx_ch[WCN_CDC_SLIM_RX_CH_MAX] = {157, 158};
+	unsigned int tx_ch[WCN_CDC_SLIM_TX_CH_MAX]  = {159, 160};
+	struct snd_soc_dai *codec_dai = asoc_rtd_to_codec(rtd, 0);
+    int ret = 0;
+
+	ret = snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
+					   tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
+	if (ret)
+		return ret;
+
+	msm_common_dai_link_init(rtd);
+    return ret;
+}
+#endif //!CONFIG_SND_SOC_PCIE
 
 static int msm_rx_tx_codec_init(struct snd_soc_pcm_runtime *rtd)
 {
