@@ -35,6 +35,10 @@ ifeq ($(KERNEL_BUILD), 0)
 		include $(AUDIO_ROOT)/config/pineappleauto.conf
 		INCS    +=  -include $(AUDIO_ROOT)/config/pineappleautoconf.h
 	endif
+	ifeq ($(CONFIG_ARCH_CROW), y)
+		include $(AUDIO_ROOT)/config/crowauto.conf
+		INCS    +=  -include $(AUDIO_ROOT)/config/crowautoconf.h
+	endif
 
 endif
 
