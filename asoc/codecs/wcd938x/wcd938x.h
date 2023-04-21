@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _WCD938X_H
@@ -23,12 +24,12 @@ enum {
 	WCD938X_EVT_SSR_UP,
 };
 
-struct swr_slave_ch_map {
+struct wcd938x_swr_slave_ch_map {
 	u8 ch_type;
 	u8 index;
 };
 
-static const struct swr_slave_ch_map swr_slv_tx_ch_idx[] = {
+static const struct wcd938x_swr_slave_ch_map wcd938x_swr_slv_tx_ch_idx[] = {
 	{ADC1, 0},
 	{ADC2, 1},
 	{ADC3, 2},
@@ -44,7 +45,7 @@ static const struct swr_slave_ch_map swr_slv_tx_ch_idx[] = {
 	{DMIC7, 11},
 };
 
-static int swr_master_ch_map[] = {
+static int wcd938x_swr_master_ch_map[] = {
 	ZERO,
 	SWRM_TX_PCM_OUT,
 	SWRM_TX1_CH1,
@@ -79,14 +80,14 @@ static inline int wcd938x_slave_get_master_ch_val(int ch)
 	int i;
 
 	for (i = 0; i < WCD938X_MAX_SLAVE_CH_TYPES; i++)
-		if (ch == swr_master_ch_map[i])
+		if (ch == wcd938x_swr_master_ch_map[i])
 			return i;
 	return 0;
 }
 
 static inline int wcd938x_slave_get_master_ch(int idx)
 {
-	return swr_master_ch_map[idx];
+	return wcd938x_swr_master_ch_map[idx];
 }
 
 static inline int wcd938x_slave_get_slave_ch_val(int ch)
@@ -94,8 +95,8 @@ static inline int wcd938x_slave_get_slave_ch_val(int ch)
 	int i;
 
 	for (i = 0; i < WCD938X_MAX_SLAVE_CH_TYPES; i++)
-		if (ch == swr_slv_tx_ch_idx[i].ch_type)
-			return swr_slv_tx_ch_idx[i].index;
+		if (ch == wcd938x_swr_slv_tx_ch_idx[i].ch_type)
+			return wcd938x_swr_slv_tx_ch_idx[i].index;
 
 	return -EINVAL;
 }
