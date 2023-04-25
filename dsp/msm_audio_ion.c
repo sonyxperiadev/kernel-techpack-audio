@@ -80,6 +80,7 @@ struct msm_audio_fd_data {
 	size_t plen;
 	void *handle;
 	dma_addr_t paddr;
+	void *vaddr;
 	struct device *dev;
 	struct list_head list;
 	bool hyp_assign;
@@ -422,6 +423,35 @@ void msm_audio_delete_fd_entry(void *handle)
 	mutex_unlock(&(msm_audio_ion_fd_list.list_mutex));
 }
 
+int msm_audio_get_buf_addr(int fd, dma_addr_t *paddr, void **vaddr, size_t *pa_len)
+{
+	struct msm_audio_fd_data *msm_audio_fd_data = NULL;
+	int status = -EINVAL;
+
+	if (!paddr) {
+		pr_err("%s Invalid paddr param status %d\n", __func__, status);
+		return status;
+	}
+	pr_debug("%s, fd %d\n", __func__, fd);
+	mutex_lock(&(msm_audio_ion_fd_list.list_mutex));
+	list_for_each_entry(msm_audio_fd_data,
+			&msm_audio_ion_fd_list.fd_list, list) {
+		if (msm_audio_fd_data->fd == fd) {
+			*paddr  = msm_audio_fd_data->paddr;
+			*vaddr  = msm_audio_fd_data->vaddr;
+			*pa_len = msm_audio_fd_data->plen;
+			status  = 0;
+			pr_debug("%s Found fd %d paddr %pK\n",
+				__func__, fd, paddr);
+			mutex_unlock(&(msm_audio_ion_fd_list.list_mutex));
+			return status;
+		}
+	}
+	mutex_unlock(&(msm_audio_ion_fd_list.list_mutex));
+	return status;
+}
+EXPORT_SYMBOL(msm_audio_get_buf_addr);
+
 int msm_audio_get_phy_addr(int fd, dma_addr_t *paddr, size_t *pa_len)
 {
 	struct msm_audio_fd_data *msm_audio_fd_data = NULL;
@@ -576,6 +606,12 @@ static int msm_audio_ion_free(struct dma_buf *dma_buf, struct msm_audio_ion_priv
 	}
 
 	mutex_lock(&(ion_data->list_mutex));
+	if (!ion_data) {
+		pr_err("%s: ion_data is invalid\n",__func__);
+		mutex_unlock(&(ion_data->list_mutex));
+		return -EINVAL;
+	}
+
 	if (ion_data->smmu_enabled) {
 		ret = msm_audio_ion_unmap_kernel(dma_buf, ion_data);
 		if (ret) {
@@ -722,6 +758,7 @@ static long msm_audio_ion_ioctl(struct file *file, unsigned int ioctl_num,
 		msm_audio_fd_data->fd = (int)ioctl_param;
 		msm_audio_fd_data->handle = mem_handle;
 		msm_audio_fd_data->paddr = paddr;
+		msm_audio_fd_data->vaddr = dma_vmap->vaddr;
 		msm_audio_fd_data->plen = pa_len;
 		msm_audio_fd_data->dev = ion_data->cb_dev;
 		msm_audio_update_fd_list(msm_audio_fd_data);
