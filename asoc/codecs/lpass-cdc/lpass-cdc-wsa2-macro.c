@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -2905,10 +2905,6 @@ static const struct snd_soc_dapm_widget lpass_cdc_wsa2_macro_dapm_widgets[] = {
 
 	SND_SOC_DAPM_AIF_OUT("WSA2 AIF_CPS", "WSA2_AIF_CPS Capture", 0,
 		SND_SOC_NOPM, 0, 0),
-
-	SND_SOC_DAPM_AIF_OUT("WSA2 AIF_CPS", "WSA2_AIF_CPS Capture", 0,
-		SND_SOC_NOPM, 0, 0),
-
 
 	SND_SOC_DAPM_MIXER("WSA2_AIF_VI Mixer", SND_SOC_NOPM, LPASS_CDC_WSA2_MACRO_AIF_VI,
 		0, aif_vi_mixer, ARRAY_SIZE(aif_vi_mixer)),
