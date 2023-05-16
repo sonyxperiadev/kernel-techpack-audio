@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/irq.h>
@@ -800,19 +800,9 @@ static int swrm_pcm_port_config(struct swr_mstr_ctrl *swrm, u8 port_num,
 	reg_addr = ((dir) ? SWRM_DIN_DP_PCM_PORT_CTRL(port_num) : \
 			SWRM_DOUT_DP_PCM_PORT_CTRL(port_num));
 	reg_val = enable ? 0x3 : 0x0;
-	if (enable) {
-		if (swrm->pcm_enable_count == 0)
-			swr_master_write(swrm, reg_addr, reg_val);
-		swrm->pcm_enable_count++;
-	} else {
-		if (swrm->pcm_enable_count > 0)
-			swrm->pcm_enable_count--;
-		if (swrm->pcm_enable_count == 0)
-			swr_master_write(swrm, reg_addr, reg_val);
-	}
-	dev_dbg(swrm->dev, "%s : pcm port %s, reg_val = %d, for addr %x, pcm_enable_cnt:%d\n",
-			__func__, enable ? "Enabled" : "disabled", reg_val, reg_addr,
-			swrm->pcm_enable_count);
+	swr_master_write(swrm, reg_addr, reg_val);
+	dev_dbg(swrm->dev, "%s : pcm port %s, reg_val = %d, for addr %x\n",
+			__func__, enable ? "Enabled" : "disabled", reg_val, reg_addr);
 	return 0;
 }
 
@@ -1710,8 +1700,6 @@ static int swrm_slvdev_datapath_control(struct swr_master *master, bool enable)
 		}
 		clear_bit(DISABLE_PENDING, &swrm->port_req_pending);
 		swrm_cleanup_disabled_port_reqs(master);
-		/* reset enable_count to 0 in SSR if master is already down */
-		swrm->pcm_enable_count = 0;
 		if (!swrm_is_port_en(master)) {
 			dev_dbg(&master->dev, "%s: pm_runtime auto suspend triggered\n",
 				__func__);
@@ -1939,6 +1927,7 @@ static int swrm_disconnect_port(struct swr_master *master,
 	struct swrm_mports *mport;
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
 	u8 mstr_port_id, mstr_ch_mask;
+	u8 num_port = 0;
 
 	if (!swrm) {
 		dev_err_ratelimited(&master->dev,
@@ -1971,7 +1960,7 @@ static int swrm_disconnect_port(struct swr_master *master,
 		if (!port_req) {
 			dev_err_ratelimited(&master->dev, "%s:port not enabled : port %d\n",
 					 __func__, portinfo->port_id[i]);
-			goto err;
+			continue;
 		}
 		port_req->req_ch &= ~portinfo->ch_en[i];
 		mport->req_ch &= ~mstr_ch_mask;
@@ -1981,8 +1970,13 @@ static int swrm_disconnect_port(struct swr_master *master,
 			mport->ch_rate = 0;
 			swrm_update_bus_clk(swrm);
 		}
+		num_port++;
 	}
-	master->num_port -= portinfo->num_port;
+
+	if (master->num_port > num_port)
+		master->num_port -= num_port;
+	else
+		master->num_port = 0;
 	set_bit(DISABLE_PENDING, &swrm->port_req_pending);
 	swr_port_response(master, portinfo->tid);
 	mutex_unlock(&swrm->mlock);
@@ -2846,7 +2840,7 @@ static int swrm_probe(struct platform_device *pdev)
 		dev_err(swrm->dev, "missing port mapping\n");
 		goto err_pdata_fail;
 	}
-	swrm->pcm_enable_count = 0;
+
 	map_length = map_size / (3 * sizeof(u32));
 	if (num_ports > SWR_MSTR_PORT_LEN) {
 		dev_err(&pdev->dev, "%s:invalid number of swr ports\n",
