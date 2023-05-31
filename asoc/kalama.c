@@ -1819,7 +1819,8 @@ static int msm_rx_tx_codec_init(struct snd_soc_pcm_runtime *rtd)
 	card = component->card->snd_card;
 
 	snd_soc_dapm_ignore_suspend(dapm, "EAR");
-	snd_soc_dapm_ignore_suspend(dapm, "AUX");
+	if (pdata->wcd_used != WCD939X_DEV_INDEX)
+		snd_soc_dapm_ignore_suspend(dapm, "AUX");
 	snd_soc_dapm_ignore_suspend(dapm, "HPHL");
 	snd_soc_dapm_ignore_suspend(dapm, "HPHR");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC1");
