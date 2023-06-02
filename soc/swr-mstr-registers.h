@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015, 2018-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _SWRM_REGISTERS_H
@@ -49,7 +49,7 @@
 #define SWRM_INTERRUPT_CLEAR_1(n)                 (SWRM_BASE+0x0228*n)
 #define SWRM_CPU1_INTERRUPT_EN(n)                 (SWRM_BASE+0x0210*n)
 #define SWRM_CPU1_INTERRUPT_EN_1(n)               (SWRM_BASE+0x0230*n)
-#define SWRM_CPU0_CMD_RESPONSE(n)                 (SWRM_BASE+0x0250*n)
+#define SWRM_CPU0_CMD_RESPONSE(n)                 (SWRM_BASE+0x0250+0x4*n)
 
 #define SWRM_CPU1_CMD_FIFO_WR_CMD(n)              (SWRM_BASE+0x031C*n)
 #define SWRM_CPU1_CMD_FIFO_RD_CMD(n)              (SWRM_BASE+0x0320*n)
