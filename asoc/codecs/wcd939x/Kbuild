@@ -14,9 +14,14 @@ ifeq ($(KERNEL_BUILD), 1)
 endif
 
 ifeq ($(KERNEL_BUILD), 0)
-	ifeq ($(CONFIG_ARCH_LAHAINA), y)
-		include $(AUDIO_ROOT)/config/lahainaauto.conf
-		INCS    +=  -include $(AUDIO_ROOT)/config/lahainaautoconf.h
+	ifeq ($(CONFIG_ARCH_KONA), y)
+		include $(AUDIO_ROOT)/config/konaauto.conf
+		INCS    +=  -include $(AUDIO_ROOT)/config/konaautoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_LITO), y)
+		include $(AUDIO_ROOT)/config/litoauto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/litoautoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_WAIPIO), y)
 		include $(AUDIO_ROOT)/config/waipioauto.conf
@@ -26,14 +31,15 @@ ifeq ($(KERNEL_BUILD), 0)
 		include $(AUDIO_ROOT)/config/kalamaauto.conf
 		INCS    +=  -include $(AUDIO_ROOT)/config/kalamaautoconf.h
 	endif
+	ifeq ($(CONFIG_ARCH_PINEAPPLE), y)
+		include $(AUDIO_ROOT)/config/pineappleauto.conf
+		INCS    +=  -include $(AUDIO_ROOT)/config/pineappleautoconf.h
+	endif
 	ifeq ($(CONFIG_ARCH_CROW), y)
 		include $(AUDIO_ROOT)/config/crowauto.conf
 		INCS    +=  -include $(AUDIO_ROOT)/config/crowautoconf.h
 	endif
-	ifeq ($(CONFIG_ARCH_LITO), y)
-		include $(AUDIO_ROOT)/config/litoauto.conf
-		INCS    +=  -include $(AUDIO_ROOT)/config/litoautoconf.h
-	endif
+
 endif
 
 # As per target team, build is done as follows:
@@ -60,13 +66,18 @@ UAPI_INC :=	-I$(AUDIO_ROOT)/include/$(UAPI_DIR)
 COMMON_DIR :=	include
 COMMON_INC :=	-I$(AUDIO_ROOT)/$(COMMON_DIR)
 
-############ WSA884X ############
+############ WCD939X ############
 
-# for WSA884X Codec
-ifdef CONFIG_SND_SOC_WSA884X
-	WSA884X_OBJS += wsa884x.o
-	WSA884X_OBJS += wsa884x-regmap.o
-	WSA884X_OBJS += wsa884x-tables.o
+# for WCD939X Codec
+ifdef CONFIG_SND_SOC_WCD939X
+	WCD939X_OBJS += wcd939x.o
+	WCD939X_OBJS += wcd939x-regmap.o
+	WCD939X_OBJS += wcd939x-tables.o
+	WCD939X_OBJS += wcd939x-mbhc.o
+endif
+
+ifdef CONFIG_SND_SOC_WCD939X_SLAVE
+	WCD939X_SLAVE_OBJS += wcd939x-slave.o
 endif
 
 LINUX_INC +=	-Iinclude/linux
@@ -74,7 +85,7 @@ LINUX_INC +=	-Iinclude/linux
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC)
 
-EXTRA_CFLAGS += $(INCS)
+ccflags-y += $(INCS)
 
 
 CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
@@ -94,18 +105,21 @@ KBUILD_CPPFLAGS += $(CDEFINES)
 # AUDIO driver.  Note that we must use EXTRA_CFLAGS here so that it
 # will override the kernel settings.
 ifeq ($(call cc-option-yn, -Wmaybe-uninitialized),y)
-EXTRA_CFLAGS += -Wmaybe-uninitialized
+ccflags-y += -Wmaybe-uninitialized
 endif
-#EXTRA_CFLAGS += -Wmissing-prototypes
+#ccflags-y += -Wmissing-prototypes
 
 ifeq ($(call cc-option-yn, -Wheader-guard),y)
-EXTRA_CFLAGS += -Wheader-guard
+ccflags-y += -Wheader-guard
 endif
 
 
 # Module information used by KBuild framework
-obj-$(CONFIG_SND_SOC_WSA884X) += wsa884x_dlkm.o
-wsa884x_dlkm-y := $(WSA884X_OBJS)
+obj-$(CONFIG_SND_SOC_WCD939X) += wcd939x_dlkm.o
+wcd939x_dlkm-y := $(WCD939X_OBJS)
+
+obj-$(CONFIG_SND_SOC_WCD939X_SLAVE) += wcd939x_slave_dlkm.o
+wcd939x_slave_dlkm-y := $(WCD939X_SLAVE_OBJS)
 
 # inject some build related information
 DEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"

@@ -56,8 +56,8 @@ ifeq ($(KERNEL_BUILD), 0)
 		INCS    +=  -include $(AUDIO_ROOT)/config/kalamaautoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_CROW), y)
-		include $(AUDIO_ROOT)/config/kalamaauto.conf
-		INCS    +=  -include $(AUDIO_ROOT)/config/kalamaautoconf.h
+		include $(AUDIO_ROOT)/config/crowauto.conf
+		INCS    +=  -include $(AUDIO_ROOT)/config/crowautoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_LITO), y)
 		include $(AUDIO_ROOT)/config/litoauto.conf
@@ -145,7 +145,11 @@ GPRV_GLINK += gpr-lite.o
 endif
 
 ifdef CONFIG_AUDIO_PKT
+ifdef CONFIG_SND_SOC_PCIE
+AUDIO_PKT += audio-pcie-pkt.o
+else
 AUDIO_PKT += audio-pkt.o
+endif
 endif
 
 LINUX_INC += -Iinclude/linux
