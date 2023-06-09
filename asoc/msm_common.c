@@ -52,6 +52,8 @@ struct snd_card_pdata {
 #define SAMPLING_RATE_176P4KHZ  176400
 #define SAMPLING_RATE_352P8KHZ  352800
 
+struct mutex vote_against_sleep_lock;
+
 static struct attribute device_state_attr = {
 	.name = "state",
 	.mode = 0660,
@@ -164,8 +166,13 @@ int snd_card_notify_user(snd_card_status_t card_status)
 {
 	snd_card_pdata->card_status = card_status;
 	sysfs_notify(&snd_card_pdata->snd_card_kobj, NULL, "card_state");
-	if (card_status == 0)
+	if (card_status == 0) {
+		mutex_lock(&vote_against_sleep_lock);
 		vote_against_sleep_cnt = 0;
+		pr_debug("%s: SSR/PDR triggered reset vote_against_sleep_cnt = %d\n",
+					__func__, vote_against_sleep_cnt);
+		mutex_unlock(&vote_against_sleep_lock);
+	}
 	return 0;
 }
 
@@ -770,6 +777,8 @@ int msm_common_snd_init(struct platform_device *pdev, struct snd_soc_card *card)
 	/* Add QoS request for audio tasks */
 	msm_audio_add_qos_request();
 
+	mutex_init(&vote_against_sleep_lock);
+
 	return 0;
 };
 
@@ -780,6 +789,7 @@ void msm_common_snd_deinit(struct msm_common_pdata *common_pdata)
 	if (!common_pdata)
 		return;
 
+	mutex_destroy(&vote_against_sleep_lock);
 	msm_audio_remove_qos_request();
 
 	mutex_destroy(&common_pdata->aud_dev_lock);
@@ -1012,6 +1022,7 @@ static int msm_vote_against_sleep_ctl_put(struct snd_kcontrol *kcontrol,
 {
 	int ret = 0;
 
+	mutex_lock(&vote_against_sleep_lock);
 	vote_against_sleep_enable = ucontrol->value.integer.value[0];
 	pr_debug("%s: vote against sleep enable: %d sleep cnt: %d", __func__,
 			vote_against_sleep_enable, vote_against_sleep_cnt);
@@ -1021,7 +1032,8 @@ static int msm_vote_against_sleep_ctl_put(struct snd_kcontrol *kcontrol,
 		if (vote_against_sleep_cnt ==  1) {
 			ret = audio_prm_set_vote_against_sleep(1);
 			if (ret < 0) {
-				--vote_against_sleep_cnt;
+				if (vote_against_sleep_cnt > 0)
+					--vote_against_sleep_cnt;
 				pr_err("%s: failed to vote against sleep ret: %d\n", __func__, ret);
 			}
 		}
@@ -1033,6 +1045,7 @@ static int msm_vote_against_sleep_ctl_put(struct snd_kcontrol *kcontrol,
 	}
 
 	pr_debug("%s: vote against sleep vote ret: %d\n", __func__, ret);
+	mutex_unlock(&vote_against_sleep_lock);
 	return ret;
 }
 
