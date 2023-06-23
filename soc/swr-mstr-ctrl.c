@@ -2287,6 +2287,7 @@ handle_irq:
 				swrm->clk_stop_wakeup = false;
 			}
 			break;
+#ifdef CONFIG_SWRM_VER_2P0
 		case SWRM_INTERRUPT_STATUS_CMD_IGNORED_AND_EXEC_CONTINUED:
 			value = swr_master_read(swrm, SWRM_CMD_FIFO_STATUS(swrm->ee_val));
 			dev_err_ratelimited(swrm->dev,
@@ -2295,6 +2296,7 @@ handle_irq:
 			/* Wait 3.5ms to clear */
 			usleep_range(3500, 3505);
 			break;
+#endif
 		default:
 			dev_err_ratelimited(swrm->dev,
 					"%s: SWR unknown interrupt value: %d\n",
@@ -2624,6 +2626,14 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 #ifdef CONFIG_SWRM_VER_2P0
 	reg[len] = SWRM_CLK_CTRL(swrm->ee_val);
 	value[len++] = 0x01;
+#endif
+
+#ifdef CONFIG_SWRM_VER_1P7
+	reg[len] = SWRM_MCP_BUS_CTRL;
+	if (swrm->version < SWRM_VERSION_1_7)
+		value[len++] = 0x2;
+	else
+		value[len++] = 0x2 << swrm->ee_val;
 #endif
 
 	/* Set IRQ to PULSE */
