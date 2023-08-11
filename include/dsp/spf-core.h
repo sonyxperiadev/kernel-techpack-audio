@@ -14,7 +14,7 @@
 #define __SPF_CORE_H__
 #include <ipc/gpr-lite.h>
 
-bool spf_core_is_apm_ready(void);
+bool spf_core_is_apm_ready(int msec);
 void spf_core_apm_close_all(void);
 
 #endif

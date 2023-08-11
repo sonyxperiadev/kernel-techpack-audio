@@ -158,7 +158,7 @@ done:
  *
  * Return: Will return true if apm is ready and false if not.
  */
-bool spf_core_is_apm_ready(void)
+bool spf_core_is_apm_ready(int msec)
 {
 	unsigned long  timeout;
 	bool ret = false;
@@ -172,13 +172,16 @@ bool spf_core_is_apm_ready(void)
 	if (!core)
 		goto done;
 
-	timeout = jiffies + msecs_to_jiffies(APM_STATE_READY_TIMEOUT_MS);
+	timeout = jiffies + msecs_to_jiffies(msec);
 	mutex_lock(&core->lock);
 	for (;;) {
 		if (__spf_core_is_apm_ready(core)) {
 			ret = true;
 			break;
 		}
+		if (!msec)
+			break;
+
 		usleep_range(50000, 50050);
 		if (!time_after(timeout, jiffies)) {
 			ret = false;
@@ -336,7 +339,7 @@ static void spf_core_add_child_devices(struct work_struct *work)
 	int ret;
         pr_err("%s:enumarate machine driver\n", __func__);
 
-	if(spf_core_is_apm_ready()) {
+	if(spf_core_is_apm_ready(500)) {
 		dev_err(spf_core_priv->dev, "%s: apm is up\n",
 			__func__);
 	} else {

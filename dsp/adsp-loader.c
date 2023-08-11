@@ -137,7 +137,7 @@ static void adsp_load_fw(struct work_struct *adsp_ldr_work)
 
 load_adsp:
 	{
-		adsp_state = spf_core_is_apm_ready();
+		adsp_state = spf_core_is_apm_ready(10000);
 		if (adsp_state == SPF_SUBSYS_DOWN) {
 			rc = rproc_boot(priv->pil_h);
 			if (rc) {
