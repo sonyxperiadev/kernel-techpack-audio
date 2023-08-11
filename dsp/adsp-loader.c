@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2014, 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -137,7 +137,7 @@ static void adsp_load_fw(struct work_struct *adsp_ldr_work)
 
 load_adsp:
 	{
-		adsp_state = spf_core_is_apm_ready();
+		adsp_state = spf_core_is_apm_ready(10000);
 		if (adsp_state == SPF_SUBSYS_DOWN) {
 			rc = rproc_boot(priv->pil_h);
 			if (rc) {
