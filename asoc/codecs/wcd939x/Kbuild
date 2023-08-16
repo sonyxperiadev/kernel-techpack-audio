@@ -120,6 +120,3 @@ wcd939x_dlkm-y := $(WCD939X_OBJS)
 
 obj-$(CONFIG_SND_SOC_WCD939X_SLAVE) += wcd939x_slave_dlkm.o
 wcd939x_slave_dlkm-y := $(WCD939X_SLAVE_OBJS)
-
-# inject some build related information
-DEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"
