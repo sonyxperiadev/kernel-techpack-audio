@@ -3367,7 +3367,7 @@ static int tx_macro_probe(struct platform_device *pdev)
 	int ret = 0;
 	const char *dmic_sample_rate = "qcom,tx-dmic-sample-rate";
 	u32 is_used_tx_swr_gpio = 1;
-	const char *is_used_tx_swr_gpio_dt = "qcom,is-used-swr-gpio";
+	const char *is_used_tx_swr_gpio_dt = "qcom,swr-gpio-is-used";
 	u32 disable_afe_wakeup_event_listener = 0;
 	const char *disable_afe_wakeup_event_listener_dt =
 			"qcom,disable-afe-wakeup-event-listener";
