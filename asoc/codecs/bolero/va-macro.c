@@ -3073,7 +3073,7 @@ static int va_macro_probe(struct platform_device *pdev)
 	u32 default_clk_id = 0;
 	struct clk *lpass_audio_hw_vote = NULL;
 	u32 is_used_va_swr_gpio = 0;
-	const char *is_used_va_swr_gpio_dt = "qcom,is-used-swr-gpio";
+	const char *is_used_va_swr_gpio_dt = "qcom,swr-gpio-is-used";
 
 	va_priv = devm_kzalloc(&pdev->dev, sizeof(struct va_macro_priv),
 			    GFP_KERNEL);
