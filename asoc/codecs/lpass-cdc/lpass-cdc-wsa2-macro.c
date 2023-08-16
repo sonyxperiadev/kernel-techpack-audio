@@ -3236,7 +3236,7 @@ static int lpass_cdc_wsa2_macro_probe(struct platform_device *pdev)
 	char __iomem *wsa2_io_base;
 	int ret = 0;
 	u32 is_used_wsa2_swr_gpio = 1;
-	const char *is_used_wsa2_swr_gpio_dt = "qcom,is-used-swr-gpio";
+	const char *is_used_wsa2_swr_gpio_dt = "qcom,swr-gpio-is-used";
 
 	if (!lpass_cdc_is_va_macro_registered(&pdev->dev)) {
 		dev_err(&pdev->dev,

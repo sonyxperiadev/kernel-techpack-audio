@@ -4709,7 +4709,7 @@ static int lpass_cdc_rx_macro_probe(struct platform_device *pdev)
 	u32 default_clk_id = 0;
 	struct clk *hifi_fir_clk = NULL;
 	u32 is_used_rx_swr_gpio = 1;
-	const char *is_used_rx_swr_gpio_dt = "qcom,is-used-swr-gpio";
+	const char *is_used_rx_swr_gpio_dt = "qcom,swr-gpio-is-used";
 
 	if (!lpass_cdc_is_va_macro_registered(&pdev->dev)) {
 		dev_err(&pdev->dev,
