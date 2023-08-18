@@ -16,12 +16,10 @@ endif
 ifeq ($(KERNEL_BUILD), 0)
 	ifeq ($(CONFIG_ARCH_SM6150), y)
 		include $(AUDIO_ROOT)/config/sm6150auto.conf
-		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_TRINKET), y)
 		include $(AUDIO_ROOT)/config/sm6150auto.conf
-		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_KONA), y)
@@ -30,32 +28,26 @@ ifeq ($(KERNEL_BUILD), 0)
 	endif
 	ifeq ($(CONFIG_ARCH_LITO), y)
 		include $(AUDIO_ROOT)/config/litoauto.conf
-		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/litoautoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_BENGAL), y)
 		include $(AUDIO_ROOT)/config/bengalauto.conf
-		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/bengalautoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_SM8150), y)
 		include $(AUDIO_ROOT)/config/sm8150auto.conf
-		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_SDMSHRIKE), y)
 		include $(AUDIO_ROOT)/config/sm8150auto.conf
-		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/sm8150autoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_QCS405), y)
 		include $(AUDIO_ROOT)/config/qcs405auto.conf
-		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/qcs405autoconf.h
 	endif
 	ifeq ($(CONFIG_QTI_QUIN_GVM), y)
 		include $(AUDIO_ROOT)/config/gvmauto.conf
-		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/gvmautoconf.h
 	endif
 endif
