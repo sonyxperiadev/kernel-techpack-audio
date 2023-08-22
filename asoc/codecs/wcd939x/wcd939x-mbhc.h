@@ -11,7 +11,21 @@ struct wcd939x_mbhc {
 	struct wcd_mbhc wcd_mbhc;
 	struct blocking_notifier_head notifier;
 	struct fw_info *fw_data;
+	struct timer_list rdown_timer;
+	int rdown_prev_iter;
+	bool rdown_timer_complete;
 };
+
+static inline u32 get_r_gnd_res_tot_mohms(u32 r_gnd_int_fet_mohms, u32 r_gnd_ext_fet_mohms,
+					  u32 r_gnd_par_tot_mohms)
+{
+	return r_gnd_int_fet_mohms + r_gnd_ext_fet_mohms + r_gnd_par_tot_mohms;
+}
+
+static inline u32 get_r_aud_res_tot_mohms(u32 r_aud_int_fet_mohms, u32 r_aud_ext_fet_mohms)
+{
+	return r_aud_int_fet_mohms + r_aud_ext_fet_mohms;
+}
 
 #if IS_ENABLED(CONFIG_SND_SOC_WCD939X)
 extern int wcd939x_mbhc_init(struct wcd939x_mbhc **mbhc,

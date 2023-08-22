@@ -963,6 +963,37 @@ static bool wcd_mbhc_moisture_detect(struct wcd_mbhc *mbhc, bool detection_type)
 	return ret;
 }
 
+static void wcd_mbhc_set_hsj_connect(struct wcd_mbhc *mbhc, bool connect)
+{
+	struct snd_soc_component *component = mbhc->component;
+
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+	if (mbhc->wcd_aatc_dev_np) {
+		if (connect) {
+			if (mbhc->mbhc_cb && mbhc->mbhc_cb->zdet_leakage_resistance) {
+				/* enable 1M pull-up */
+				mbhc->mbhc_cb->zdet_leakage_resistance(mbhc, false);
+			}
+
+			if (of_find_property(component->card->dev->of_node,
+						"qcom,usbss-hsj-connect-enabled", NULL))
+				wcd_usbss_switch_update(WCD_USBSS_HSJ_CONNECT,
+							WCD_USBSS_CABLE_CONNECT);
+		} else {
+			if (of_find_property(component->card->dev->of_node,
+						"qcom,usbss-hsj-connect-enabled", NULL))
+				wcd_usbss_switch_update(WCD_USBSS_HSJ_CONNECT,
+							WCD_USBSS_CABLE_DISCONNECT);
+
+			if (mbhc->mbhc_cb && mbhc->mbhc_cb->zdet_leakage_resistance) {
+				/* disable 1M pull-up */
+				mbhc->mbhc_cb->zdet_leakage_resistance(mbhc, true);
+			}
+		}
+	}
+#endif
+}
+
 static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 {
 	bool detection_type = 0;
@@ -1004,6 +1035,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 	if ((mbhc->current_plug == MBHC_PLUG_TYPE_NONE) &&
 	    detection_type) {
 
+		wcd_mbhc_set_hsj_connect(mbhc, 1);
 		/* If moisture is present, then enable polling, disable
 		 * moisture detection and wait for interrupt
 		 */
@@ -1119,6 +1151,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 				mbhc->mbhc_cb->mbhc_moisture_detect_en(mbhc,
 									false);
 		}
+		wcd_mbhc_set_hsj_connect(mbhc, 0);
 
 	} else if (!detection_type) {
 		/* Disable external voltage source to micbias if present */
@@ -1718,7 +1751,7 @@ static int wcd_mbhc_usbc_ana_event_handler(struct notifier_block *nb,
 			}
 		}
 #endif
-	} else {
+	} else if (mode < TYPEC_MAX_ACCESSORY) {
 #if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
 		if (mbhc->wcd_aatc_dev_np) {
 			WCD_MBHC_REG_READ(WCD_MBHC_L_DET_EN, l_det_en);
@@ -1736,6 +1769,9 @@ static int wcd_mbhc_usbc_ana_event_handler(struct notifier_block *nb,
 			}
 		}
 #endif
+	} else if (mode == TYPEC_MAX_ACCESSORY) {
+		if (mbhc->mbhc_cb->surge_reset_routine)
+			mbhc->mbhc_cb->surge_reset_routine(mbhc);
 	}
 	return 0;
 }
