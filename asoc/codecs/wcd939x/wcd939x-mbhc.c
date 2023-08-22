@@ -14,14 +14,20 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/regmap.h>
+#include <linux/timer.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <asoc/wcdcal-hwdep.h>
 #include <asoc/wcd-mbhc-v2-api.h>
+#include <linux/sysfs.h>
+#include <linux/kobject.h>
 #include "wcd939x-registers.h"
 #include "internal.h"
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+#include <linux/soc/qcom/wcd939x-i2c.h>
+#endif
 
 #define WCD939X_ZDET_SUPPORTED          true
 /* Z value defined in milliohm */
@@ -37,8 +43,29 @@
 #define WCD939X_MBHC_GET_X1(x)          (x & 0x3FFF)
 /* Z value compared in milliOhm */
 #define WCD939X_MBHC_IS_SECOND_RAMP_REQUIRED(z) false
-#define WCD939X_MBHC_ZDET_CONST         (1018 * 1024)
+#define WCD939X_MBHC_ZDET_CONST         (1071 * 1024)
 #define WCD939X_MBHC_MOISTURE_RREF      R_24_KOHM
+
+#define OHMS_TO_MILLIOHMS 1000
+#define FLOAT_TO_FIXED_XTALK (1UL << 16)
+#define MAX_XTALK_ALPHA 255
+#define MIN_RL_EFF_MOHMS 1
+#define MAX_RL_EFF_MOHMS 900000
+#define HD2_CODE_BASE_VALUE 0x1D
+#define HD2_CODE_INV_RESOLUTION 4201025
+#define FLOAT_TO_FIXED_LINEARIZER (1UL << 12)
+#define MIN_TAP_OFFSET -1023
+#define MAX_TAP_OFFSET 1023
+#define MIN_TAP 0
+#define MAX_TAP 1023
+#define RDOWN_TIMER_PERIOD_MSEC 100
+
+#define WCD_USBSS_WRITE true
+#define WCD_USBSS_READ false
+#define WCD_USBSS_EXT_LIN_EN 0x3D
+#define WCD_USBSS_EXT_SW_CTRL_1 0x43
+#define WCD_USBSS_MG1_BIAS 0x25
+#define WCD_USBSS_MG2_BIAS 0x29
 
 static struct wcd_mbhc_register
 	wcd_mbhc_registers[WCD_MBHC_REG_FUNC_MAX] = {
@@ -385,6 +412,7 @@ static inline void wcd939x_mbhc_get_result_params(struct wcd939x_priv *wcd939x,
 	int minCode_param[] = {
 			3277, 1639, 820, 410, 205, 103, 52, 26
 	};
+	struct wcd939x_mbhc *wcd939x_mbhc = wcd939x->mbhc;
 
 	regmap_update_bits(wcd939x->regmap, WCD939X_MBHC_ZDET, 0x20, 0x20);
 	for (i = 0; i < WCD939X_ZDET_NUM_MEASUREMENTS; i++) {
@@ -395,6 +423,7 @@ static inline void wcd939x_mbhc_get_result_params(struct wcd939x_priv *wcd939x,
 	val = val << 0x8;
 	regmap_read(wcd939x->regmap, WCD939X_MBHC_RESULT_1, &val1);
 	val |= val1;
+	wcd939x_mbhc->rdown_prev_iter = val;
 	regmap_update_bits(wcd939x->regmap, WCD939X_MBHC_ZDET, 0x20, 0x00);
 	x1 = WCD939X_MBHC_GET_X1(val);
 	c1 = WCD939X_MBHC_GET_C1(val);
@@ -419,6 +448,8 @@ static inline void wcd939x_mbhc_get_result_params(struct wcd939x_priv *wcd939x,
 		__func__, d1, c1, x1, *zdet);
 ramp_down:
 	i = 0;
+	wcd939x_mbhc->rdown_timer_complete = false;
+	mod_timer(&wcd939x_mbhc->rdown_timer, jiffies + msecs_to_jiffies(RDOWN_TIMER_PERIOD_MSEC));
 	while (x1) {
 		regmap_read(wcd939x->regmap,
 				 WCD939X_MBHC_RESULT_1, &val);
@@ -430,7 +461,11 @@ ramp_down:
 		i++;
 		if (i == WCD939X_ZDET_NUM_MEASUREMENTS)
 			break;
+		if (wcd939x_mbhc->rdown_timer_complete && wcd939x_mbhc->rdown_prev_iter == val)
+			break;
+		wcd939x_mbhc->rdown_prev_iter = val;
 	}
+	del_timer(&wcd939x_mbhc->rdown_timer);
 }
 
 static void wcd939x_mbhc_zdet_ramp(struct snd_soc_component *component,
@@ -440,8 +475,8 @@ static void wcd939x_mbhc_zdet_ramp(struct snd_soc_component *component,
 	struct wcd939x_priv *wcd939x = dev_get_drvdata(component->dev);
 	int32_t zdet = 0;
 
-	snd_soc_component_update_bits(component, WCD939X_ZDET_ANA_CTL,
-				0x70, zdet_param->ldo_ctl << 4);
+	snd_soc_component_update_bits(component, WCD939X_ZDET_ANA_CTL, 0xF0,
+				      0x80 | (zdet_param->ldo_ctl << 4));
 	snd_soc_component_update_bits(component, WCD939X_MBHC_BTN5, 0xFC,
 			    zdet_param->btn5);
 	snd_soc_component_update_bits(component, WCD939X_MBHC_BTN6, 0xFC,
@@ -500,38 +535,791 @@ static inline void wcd939x_wcd_mbhc_qfuse_cal(
 		*z_val = ((*z_val) * 10000) / q1_cal;
 }
 
-static void wcd939x_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
-					  uint32_t *zr)
+static void rdown_timer_callback(struct timer_list *timer)
+{
+	struct wcd939x_mbhc *wcd939x_mbhc = container_of(timer, struct wcd939x_mbhc, rdown_timer);
+
+	wcd939x_mbhc->rdown_timer_complete = true;
+}
+
+static void update_hd2_codes(struct regmap *regmap, u32 r_gnd_res_tot_mohms, u32 r_load_eff)
+{
+	u64 hd2_delta = 0;
+
+	if (!regmap)
+		return;
+	hd2_delta = (HD2_CODE_INV_RESOLUTION * (u64) r_gnd_res_tot_mohms +
+		    FLOAT_TO_FIXED_XTALK * (u64) ((r_gnd_res_tot_mohms + r_load_eff) / 2)) /
+		    (FLOAT_TO_FIXED_XTALK * (u64) (r_gnd_res_tot_mohms + r_load_eff));
+	if (hd2_delta >= HD2_CODE_BASE_VALUE) {
+		regmap_update_bits(regmap, WCD939X_RDAC_HD2_CTL_L, 0x1F, 0x00);
+		regmap_update_bits(regmap, WCD939X_RDAC_HD2_CTL_R, 0x1F, 0x00);
+	} else {
+		regmap_update_bits(regmap, WCD939X_RDAC_HD2_CTL_L, 0x1F,
+				   HD2_CODE_BASE_VALUE - hd2_delta);
+		regmap_update_bits(regmap, WCD939X_RDAC_HD2_CTL_R, 0x1F,
+				   HD2_CODE_BASE_VALUE - hd2_delta);
+	}
+}
+
+static u8 get_xtalk_scale(u32 gain)
+{
+	u8 i;
+	int target, residue;
+
+	if (gain == 0)
+		return MAX_XTALK_SCALE;
+
+	target = FLOAT_TO_FIXED_XTALK / ((int) gain);
+	residue = target;
+
+	for (i = 0; i <= MAX_XTALK_SCALE; i++) {
+		residue = target - (1 << ((int)((u32) i)));
+		if (residue < 0)
+			return i;
+	}
+	return MAX_XTALK_SCALE;
+}
+
+static u8 get_xtalk_alpha(u32 gain, u8 scale)
+{
+	u32 two_exp_scale, round_offset, alpha;
+
+	if (gain == 0)
+		return MIN_XTALK_ALPHA;
+
+	two_exp_scale = 1 << ((u32) scale);
+	round_offset = FLOAT_TO_FIXED_XTALK / 2;
+	alpha = (((gain * two_exp_scale - FLOAT_TO_FIXED_XTALK) * 255) + round_offset)
+		    / FLOAT_TO_FIXED_XTALK;
+	return (alpha <= MAX_XTALK_ALPHA) ? ((u8) alpha) : MAX_XTALK_ALPHA;
+}
+
+static u32 get_v_common_gnd_factor(u32 r_gnd_res_tot_mohms, u32 r_load_eff_mohms,
+				   u32 r_aud_res_tot_mohms)
+{
+	/* Proof 1: The numerator does not overflow.
+	 * r_gnd_res_tot_mohms = r_gnd_int_fet_mohms + r_gnd_ext_fet_mohms + r_gnd_par_tot_mohms =
+	 * r_gnd_int_fet_mohms + r_gnd_ext_fet_mohms + r_gnd_par_route1_mohms +
+	 * r_gnd_par_route2_mohms
+	 *
+	 * r_gnd_int_fet_mohms, r_gnd_ext_fet_mohms, r_gnd_par_route{1,2}_mohms are all less
+	 * than MAX_USBCSS_HS_IMPEDANCE_MOHMS
+	 * -->
+	 * FLOAT_TO_FIXED_XTALK * r_gnd_res_tot_mohms <=
+	 * FLOAT_TO_FIXED_XTALK * 4 * MAX_USBCSS_HS_IMPEDANCE_MOHMS =
+	 * (1 << 16) * 4 * 20,000 = 65,536 * 80,000 = 3,932,160,000 <= 2^32 - 1 =
+	 * 4,294,967,295 = U32_MAX
+	 *
+	 * Proof 2: The denominator is greater than 0.
+	 * r_load_eff_mohms >= MIN_RL_EFF_MOHMS = 1 > 0
+	 * -->
+	 * r_load_eff_mohms + r_aud_res_tot_mohms + r_gnd_res_tot_mohms > 0
+	 *
+	 * Proof 3: The deonominator does not overflow.
+	 * r_load_eff_mohms <= MAX_RL_EFF_MOHMS
+	 * r_aud_res_tot_mohms and r_gnd_res_tot_mohms <= MAX_USBCSS_HS_IMPEDANCE_MOHMS
+	 * -->
+	 * r_load_eff_mohms + r_aud_res_tot_mohms + r_gnd_res_tot_mohms <=
+	 * MAX_RL_EFF_MOHMS + 2 * MAX_USBCSS_HS_IMPEDANCE_MOHMS = 900,000 + 2 * 20,000 = 940,000
+	 * <= U32_MAX = 2^32 - 1 = 4,294,967,295
+	 */
+	return FLOAT_TO_FIXED_XTALK * r_gnd_res_tot_mohms /
+	       (r_load_eff_mohms + r_aud_res_tot_mohms + r_gnd_res_tot_mohms);
+}
+
+static u32 get_v_feedback_tap_factor_digital(u32 r_gnd_int_fet_mohms, u32 r_gnd_par_route1_mohms,
+					    u32 r_load_eff_mohms, u32 r_gnd_res_tot_mohms,
+					    u32 r_aud_res_tot_mohms)
+{
+	/* Proof 4: The numerator does not overflow.
+	 * r_gnd_int_fet_mohms and r_gnd_par_route1_mohms <= MAX_USBCSS_HS_IMPEDANCE_MOHMS
+	 * -->
+	 * FLOAT_TO_FIXED_XTALK * (r_gnd_int_fet_mohms + r_gnd_par_route1_mohms) <=
+	 * FLOAT_TO_FIXED_XTALK * 2 * MAX_USBCSS_HS_IMPEDANCE_MOHMS =
+	 * (1 << 16) * 2 * 20,000 = 65,536 * 40,000 = 2,621,440,000 <= 2^32 - 1 =
+	 * 4,294,967,295 = U32_MAX
+	 *
+	 * The denominator is greater than 0: See Proof 2
+	 * The deonominator does not overflow: See Proof 3
+	 */
+	return FLOAT_TO_FIXED_XTALK * (r_gnd_int_fet_mohms + r_gnd_par_route1_mohms) /
+	       (r_load_eff_mohms + r_gnd_res_tot_mohms + r_aud_res_tot_mohms);
+}
+
+static u32 get_v_feedback_tap_factor_analog(u32 r_gnd_par_route2_mohms, u32 r_load_eff_mohms,
+					    u32 r_gnd_res_tot_mohms, u32 r_aud_res_tot_mohms)
+{
+	/* Proof 5: The numerator does not overflow.
+	 * r_gnd_res_tot_mohms = r_gnd_int_fet_mohms + r_gnd_ext_fet_mohms + r_gnd_par_tot_mohms =
+	 * r_gnd_int_fet_mohms + r_gnd_ext_fet_mohms + r_gnd_par_route1_mohms +
+	 * r_gnd_par_route2_mohms
+	 *
+	 *  r_gnd_res_tot_mohms - r_gnd_par_route2_mohms =
+	 *  r_gnd_int_fet_mohms + r_gnd_ext_fet_mohms + r_gnd_par_route1_mohms
+	 *
+	 * r_gnd_int_fet_mohms, r_gnd_ext_fet_mohms, r_gnd_par_route1_mohms
+	 * <= MAX_USBCSS_HS_IMPEDANCE_MOHMS = 20,000
+	 * -->
+	 * FLOAT_TO_FIXED_XTALK * (r_gnd_int_fet_mohms + r_gnd_ext_fet_mohms +
+	 *			   r_gnd_par_route1_mohms)
+	 * <= FLOAT_TO_FIXED_XTALK * 3 * MAX_USBCSS_HS_IMPEDANCE_MOHMS =
+	 * (1 << 16) * 3 * 20,000 = 65,536 * 60,000 = 3,932,160,000 <= 2^32 - 1 =
+	 * 4,294,967,295 = U32_MAX
+	 *
+	 *  The denominator is greater than 0: See Proof 2
+	 *  The deonominator does not overflow: See Proof 3
+	 */
+	return FLOAT_TO_FIXED_XTALK * (r_gnd_res_tot_mohms - r_gnd_par_route2_mohms) /
+	       (r_load_eff_mohms + r_gnd_res_tot_mohms + r_aud_res_tot_mohms);
+}
+
+static u32 get_xtalk_gain(u32 v_common_gnd_factor, u32 v_feedback_tap_factor)
+{
+	return v_common_gnd_factor - v_feedback_tap_factor;
+}
+
+static void update_xtalk_scale_and_alpha(struct wcd939x_pdata *pdata, struct regmap *regmap)
+{
+	u32 r_gnd_res_tot_mohms = 0, r_gnd_int_fet_mohms = 0, v_common_gnd_factor = 0;
+	u32 v_feedback_tap_factor = 0, xtalk_gain = 0;
+
+	if (!pdata || pdata->usbcss_hs.xtalk_config == XTALK_NONE)
+		return;
+
+	/* Orientation-dependent ground impedance parameters */
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+	if (wcd_usbss_get_sbu_switch_orientation() == GND_SBU2_ORIENTATION_A) {
+		r_gnd_res_tot_mohms = pdata->usbcss_hs.r_gnd_sbu2_res_tot_mohms;
+		r_gnd_int_fet_mohms = pdata->usbcss_hs.r_gnd_sbu2_int_fet_mohms;
+	} else if (wcd_usbss_get_sbu_switch_orientation() == GND_SBU1_ORIENTATION_B) {
+		r_gnd_res_tot_mohms = pdata->usbcss_hs.r_gnd_sbu1_res_tot_mohms;
+		r_gnd_int_fet_mohms = pdata->usbcss_hs.r_gnd_sbu1_int_fet_mohms;
+	} else {
+		pdata->usbcss_hs.scale_l = MAX_XTALK_SCALE;
+		pdata->usbcss_hs.alpha_l = MIN_XTALK_ALPHA;
+		pdata->usbcss_hs.scale_r = MAX_XTALK_SCALE;
+		pdata->usbcss_hs.alpha_r = MIN_XTALK_ALPHA;
+		return;
+	}
+#endif
+
+	/* Recall assumptions about L and R channel impedance parameters being equivalent */
+	/* Xtalk gain calculation */
+	v_common_gnd_factor = get_v_common_gnd_factor(r_gnd_res_tot_mohms,
+						      pdata->usbcss_hs.r_load_eff_l_mohms,
+						      pdata->usbcss_hs.r_aud_res_tot_l_mohms);
+	if (pdata->usbcss_hs.xtalk_config == XTALK_ANALOG) {
+		v_feedback_tap_factor = get_v_feedback_tap_factor_analog(
+						pdata->usbcss_hs.r_gnd_par_route2_mohms,
+						pdata->usbcss_hs.r_load_eff_l_mohms,
+						r_gnd_res_tot_mohms,
+						pdata->usbcss_hs.r_aud_res_tot_l_mohms);
+		/* Update HD2 codes for analog xtalk */
+		update_hd2_codes(regmap, r_gnd_res_tot_mohms, pdata->usbcss_hs.r_load_eff_l_mohms);
+	} else {
+		v_feedback_tap_factor = get_v_feedback_tap_factor_digital(
+						r_gnd_int_fet_mohms,
+						pdata->usbcss_hs.r_gnd_par_route1_mohms,
+						pdata->usbcss_hs.r_load_eff_l_mohms,
+						r_gnd_res_tot_mohms,
+						pdata->usbcss_hs.r_aud_res_tot_l_mohms);
+	}
+	xtalk_gain = get_xtalk_gain(v_common_gnd_factor, v_feedback_tap_factor);
+	/* Store scale and alpha values */
+	pdata->usbcss_hs.scale_l = get_xtalk_scale(xtalk_gain);
+	pdata->usbcss_hs.alpha_l = get_xtalk_alpha(xtalk_gain, pdata->usbcss_hs.scale_l);
+	pdata->usbcss_hs.scale_r = pdata->usbcss_hs.scale_l;
+	pdata->usbcss_hs.alpha_r = pdata->usbcss_hs.alpha_l;
+}
+
+static void update_ext_fet_res(struct wcd939x_pdata *pdata, u32 r_gnd_ext_fet_mohms)
+{
+	if (!pdata)
+		return;
+
+	pdata->usbcss_hs.r_gnd_ext_fet_mohms = (r_gnd_ext_fet_mohms > MAX_USBCSS_HS_IMPEDANCE_MOHMS)
+					       ? MAX_USBCSS_HS_IMPEDANCE_MOHMS
+					       : r_gnd_ext_fet_mohms;
+	pdata->usbcss_hs.r_aud_ext_fet_l_mohms = pdata->usbcss_hs.r_gnd_ext_fet_mohms;
+	pdata->usbcss_hs.r_aud_ext_fet_r_mohms = pdata->usbcss_hs.r_gnd_ext_fet_mohms;
+	pdata->usbcss_hs.r_gnd_sbu1_res_tot_mohms = get_r_gnd_res_tot_mohms(
+							pdata->usbcss_hs.r_gnd_sbu1_int_fet_mohms,
+							pdata->usbcss_hs.r_gnd_ext_fet_mohms,
+							pdata->usbcss_hs.r_gnd_par_tot_mohms);
+	pdata->usbcss_hs.r_gnd_sbu2_res_tot_mohms = get_r_gnd_res_tot_mohms(
+							pdata->usbcss_hs.r_gnd_sbu2_int_fet_mohms,
+							pdata->usbcss_hs.r_gnd_ext_fet_mohms,
+							pdata->usbcss_hs.r_gnd_par_tot_mohms);
+	pdata->usbcss_hs.r_aud_res_tot_l_mohms = get_r_aud_res_tot_mohms(
+							pdata->usbcss_hs.r_aud_int_fet_l_mohms,
+							pdata->usbcss_hs.r_aud_ext_fet_l_mohms);
+	pdata->usbcss_hs.r_aud_res_tot_r_mohms = get_r_aud_res_tot_mohms(
+							pdata->usbcss_hs.r_aud_int_fet_r_mohms,
+							pdata->usbcss_hs.r_aud_ext_fet_r_mohms);
+}
+
+static void get_linearizer_taps(struct wcd939x_pdata *pdata, u32 *aud_tap, u32 *gnd_tap)
+{
+	u32 r_gnd_res_tot_mohms = 0, r_gnd_int_fet_mohms = 0, v_aud1 = 0, v_aud2 = 0;
+	u32 v_gnd_denom = 0, v_gnd1 = 0, v_gnd2 = 0, aud_denom = 0, gnd_denom = 0;
+
+	if (!pdata)
+		goto err_data;
+
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+	/* Orientation-dependent ground impedance parameters */
+	if (wcd_usbss_get_sbu_switch_orientation() == GND_SBU2_ORIENTATION_A) {
+		r_gnd_res_tot_mohms = pdata->usbcss_hs.r_gnd_sbu2_res_tot_mohms;
+		r_gnd_int_fet_mohms = pdata->usbcss_hs.r_gnd_sbu2_int_fet_mohms;
+	} else if (wcd_usbss_get_sbu_switch_orientation() == GND_SBU1_ORIENTATION_B) {
+		r_gnd_res_tot_mohms = pdata->usbcss_hs.r_gnd_sbu1_res_tot_mohms;
+		r_gnd_int_fet_mohms = pdata->usbcss_hs.r_gnd_sbu1_int_fet_mohms;
+	} else {
+		goto err_data;
+	}
+#endif
+
+	/* Proof 6: Neither aud_denom nor gnd_denom is 0 and neither overflows.
+	 * MIN_K_TIMES_100 = -50 <= MAX_K_TIMES_100 <= 10,000 = k_aud_times_100
+	 * -->
+	 * 0 < 410 = 0.1 * 4,096 = 0.1 * FLOAT_TO_FIXED_LINEARIZER < {aud,gnd}_denom <
+	 * 101 * FLOAT_TO_FIXED_LINEARIZER =
+	 * 101 * (1 << 12) < 413,696 <= 4,294,967,295 = U32_MAX
+	 */
+	aud_denom = (u32) (FLOAT_TO_FIXED_LINEARIZER +
+			   (FLOAT_TO_FIXED_LINEARIZER * pdata->usbcss_hs.k_aud_times_100 / 100));
+	gnd_denom = (u32) (FLOAT_TO_FIXED_LINEARIZER +
+			   (FLOAT_TO_FIXED_LINEARIZER * pdata->usbcss_hs.k_gnd_times_100 / 100));
+
+	/* Proof 7: v_aud2 does not overflow.
+	 * MIN_RL_EFF_MOHMS = 1 = <= pdata->usbcss_hs.r_load_eff_l_mohms <= MAX_RL_EFF_MOHMS =
+	 * 900,000
+	 *
+	 * pdata->usbcss_hs.r_gnd_par_tot_mohms = r_gnd_par_route1_mohms + r_gnd_par_route2_mohms
+	 * <= 2 * MAX_USBCSS_HS_IMPEDANCE_MOHMS = 4,0000
+	 *
+	 * r_gnd_int_fet_mohms, pdata->usbcss_hs.r_gnd_ext_fet_mohms, r_gnd_par_route1_mohms,
+	 * r_gnd_par_route2_mohms <= MAX_USBCSS_HS_IMPEDANCE_MOHMS = 20,000
+	 * -->
+	 * 1 <= v_aud2 <= MAX_RL_EFF_MOHMS + 4 * MAX_USBCSS_HS_IMPEDANCE_MOHMS =
+	 * 900,000 + 4 * 20,000 = 980,000 <= 4,294,967,295 = U32_MAX
+	 */
+	v_aud2 = pdata->usbcss_hs.r_load_eff_l_mohms - pdata->usbcss_hs.r3 + r_gnd_int_fet_mohms +
+		 pdata->usbcss_hs.r_gnd_ext_fet_mohms + pdata->usbcss_hs.r_gnd_par_tot_mohms;
+
+	/* Proof 8: v_aud1 does not overflow.
+	 * pdata->usbcss_hs.r_aud_ext_fet_l_mohms <= MAX_USBCSS_HS_IMPEDANCE_MOHMS = 20,000
+	 * From Proof 7,
+	 * 1 <= v_aud2 <= MAX_RL_EFF_MOHMS + 4 * MAX_USBCSS_HS_IMPEDANCE_MOHMS <= S32_MAX
+	 * -->
+	 * 1 <= v_aud1 <= MAX_RL_EFF_MOHMS + 5 * MAX_USBCSS_HS_IMPEDANCE_MOHMS =
+	 * 900,000 + 5 * 20,000 = 1,000,000 <= 2,147,483,647 = S32_MAX
+	 */
+	v_aud1 = v_aud2 + pdata->usbcss_hs.r_aud_ext_fet_l_mohms;
+
+	/* Proof 9: The numerator of v_aud1 does not overflow.
+	 * From Proof 8, v_aud1 was less than or equal to 1,000,000
+	 * Thus, the new v_aud1 numerator is less than or equal to
+	 * FLOAT_TO_FIXED_LINEARIZER * 1,000,000 =
+	 * 4,096 * 1,000,000 = 4,096,000,000 <= 4,294,967,295 = U32_MAX
+	 *
+	 * Proof 10: The denominator of v_aud1 is not 0.
+	 * From Proof 8, v_aud1 was greater than or equal to 1 > 0
+	 *
+	 * Proof 11: The denominator does not overflow.
+	 * From Proof 8, v_aud1 was less than or equal to 1,000,000
+	 * Thus, the new v_aud1 denominator is less than or equal to
+	 * 1,000,000 + pdata->usbcss_hs.r_aud_int_fet_l_mohms = 1,000,000 + 20,000 = 1,020,000 <=
+	 * 4,294,967,295 = U32_MAX
+	 */
+	v_aud1 = FLOAT_TO_FIXED_LINEARIZER * v_aud1 /
+		 (v_aud1 + pdata->usbcss_hs.r_aud_int_fet_l_mohms);
+
+	/* Proof 12: The numerator of v_aud2 does not overflow.
+	 * From Proof 7, v_aud2 was less than or equal to 980,000
+	 * Thus, the new v_aud2 numerator is less than or equal to
+	 * FLOAT_TO_FIXED_LINEARIZER * 980,000 =
+	 * 4,096 * 980,000 = 4,014,080,000 <= 4,294,967,295 = U32_MAX
+	 *
+	 * Proof 13: The denominator of v_aud2 is not 0.
+	 * From Proof 7, v_aud2 was greater than or equal to 1 > 0
+	 *
+	 * Proof 14: The denominator does not overflow.
+	 * From Proof 7, v_aud2 was less than or equal to 980,000
+	 * Thus, the new v_aud2 denominator is less than or equal to
+	 * 980,000 + pdata->usbcss_hs.r_aud_int_fet_l_mohms pdata->usbcss_hs.r_aud_int_fet_l_mohms =
+	 * 980,000 + 20,000 + + 20,000 = 1,020,000 <= 4,294,967,295 = U32_MAX
+	 */
+	v_aud2 = FLOAT_TO_FIXED_LINEARIZER * v_aud2 /
+		 (v_aud2 + pdata->usbcss_hs.r_aud_ext_fet_l_mohms +
+		  pdata->usbcss_hs.r_aud_int_fet_l_mohms);
+
+	/* Proof 15: The numerator of aud_tap does not overflow.
+	 * Looking at the formula for v_aud1 from Proofs 9 to 11, the greatest value of v_aud1 is
+	 * FLOAT_TO_FIXED_LINEARIZER = 4,096
+	 * Looking at the formula for v_aud2 from Proofs 12 to 14, the greatest value of v_aud2 is
+	 * FLOAT_TO_FIXED_LINEARIZER = 4,096
+	 * From Proof 6, aud_denom <= 413,696
+	 * Thus, the numerator <= 1,000 * 4,096 + 10 * 10,000 * 4,096 + 413,696 / 2 =
+	 * 4,096,000 + 409,600,000 + 206,848 = 413,902,848 <= 4,294,967,295 = U32_MAX
+	 *
+	 * Proof 16: The denominator of aud_tap is not 0.
+	 * From Proof 6, aud_denom > 410 > 0
+	 *
+	 * Proof 17: The denominator of aud_tap does not overflow
+	 * From Proof 6, aud_denom <= 413,696 <= 4,294,967,295 = U32_MAX
+	 *
+	 * Proof 18: The result of aud_tap does not overflow.
+	 * From Proof 15, the numerator <= 413,902,848 and from Proof 16, the denominator > 410
+	 * Thus, the divsion will be at most 1,009,519.
+	 * pdata->usbcss_hs.aud_tap_offset <= MAX_TAP_OFFSET = 1,023
+	 * The sum will thus be bounded by 1,009,519 + 1,023 = 1,010,542 <= 2,147,483,647 = S32_MAX
+	 * Note: aud_tap won't underflow either since pdata->usbcss_hs.aud_tap_offset >= -1,023
+	 */
+	*aud_tap = (u32) ((s32) ((1000 * v_aud1 + 10 * pdata->usbcss_hs.k_aud_times_100 * v_aud2
+				  + aud_denom / 2) / aud_denom) + pdata->usbcss_hs.aud_tap_offset);
+	if (*aud_tap > MAX_TAP)
+		*aud_tap = MAX_TAP;
+	else if (*aud_tap < MIN_TAP)
+		*aud_tap = MIN_TAP;
+
+	/* Proof 19: v_gnd_denom does not overflow.
+	 * r_gnd_res_tot_mohms = r_gnd_int_fet_mohms + r_gnd_ext_fet_mohms + r_gnd_par_tot_mohms
+	 *
+	 * r_gnd_int_fet_mohms, r_gnd_ext_fet_mohms, r_gnd_par_tot_mohms,
+	 * pdata->usbcss_hs.r_aud_ext_fet_l_mohms, pdata->usbcss_hs.r_aud_int_fet_l_mohms are all
+	 * <= MAX_USBCSS_HS_IMPEDANCE_MOHMS = 20,000
+	 *
+	 * pdata->usbcss_hs.r_load_eff_l_mohms <= MAX_RL_EFF_MOHMS = 900,000
+	 *
+	 * --> v_gnd_denom <= 3 * 20,000 + 900,000 + 2 * 20,000 = 60,000 + 900,000 + 40,000 =
+	 * 1,000,000 <= 4,294,967,295 = U32_MAX
+	 *
+	 * Proof 20: v_gnd_denom is not 0.
+	 * pdata->usbcss_hs.r_load_eff_l_mohms >= MIN_RL_EFF_MOHMS = 1
+	 * -->  v_gnd_denom >= 1 > 0
+	 */
+
+	v_gnd_denom = (r_gnd_res_tot_mohms + pdata->usbcss_hs.r_load_eff_l_mohms -
+		       pdata->usbcss_hs.r3 + pdata->usbcss_hs.r_aud_ext_fet_l_mohms +
+		       pdata->usbcss_hs.r_aud_int_fet_l_mohms);
+
+	/* Proof 21: v_gnd1 numerator does not overflow.
+	 * r_gnd_int_fet_mohms <= MAX_USBCSS_HS_IMPEDANCE_MOHMS = 20,000
+	 * --> v_gnd1 numerator <= 4,096 * 20,000 = 81,920,000 <= 4,294,967,295 = U32_MAX
+	 *
+	 * v_gnd1 denominator is not 0: See Proof 20
+	 * v_gnd1 denominator does not overflow: See Proof 19
+	 */
+	v_gnd1 = FLOAT_TO_FIXED_LINEARIZER * r_gnd_int_fet_mohms / v_gnd_denom;
+
+	/* Proof 22: v_gnd2 numerator does not overflow.
+	 * r_gnd_int_fet_mohms <= MAX_USBCSS_HS_IMPEDANCE_MOHMS = 20,000
+	 * pdata->usbcss_hs.r_load_eff_l_mohms <= MAX_RL_EFF_MOHMS = 900,000
+	 * --> v_gnd2 numerator <= 4,096 * (20,000 + 900,000) = 4,096 * 920,000 = 3,768,320,000
+	 * <= 4,294,967,295 = U32_MAX
+	 *
+	 * v_gnd2 denominator is not 0: See Proof 20
+	 * v_gnd2 denominator does not overflow: See Proof 19
+	 */
+	v_gnd2 = FLOAT_TO_FIXED_LINEARIZER * (r_gnd_int_fet_mohms +
+					      pdata->usbcss_hs.r_gnd_ext_fet_mohms) / v_gnd_denom;
+
+	/* Proof 23: The numerator of gnd_tap does not overflow.
+	 * Looking at the formula for v_gnd1 from Proof 21, and considering that
+	 * r_gnd_res_tot_mohms = r_gnd_int_fet_mohms + r_gnd_ext_fet_mohms + r_gnd_par_tot_mohms,
+	 * the greatest value of v_gnd1 is FLOAT_TO_FIXED_LINEARIZER = 4,096.
+	 * Looking at the formula for v_aud2 from Proof 22 and again at the definintion of
+	 * r_gnd_res_tot_mohms, the greatest value of v_gnd2 is FLOAT_TO_FIXED_LINEARIZER = 4,096
+	 * From Proof 6, gnd_denom <= 413,696
+	 * Thus, the numerator <= 1,000 * 4,096 + 10 * 10,000 * 4,096 + 413,696 / 2 =
+	 * 4,096,000 + 409,600,000 + 206,848 = 413,902,848 <= 4,294,967,295 = U32_MAX
+	 *
+	 * Proof 24: The denominator of gnd_tap is not 0.
+	 * From Proof 6, gnd_denom > 410 > 0
+	 *
+	 * Proof 25: The denominator of gnd_tap does not overflow
+	 * From Proof 6, gnd_denom <= 413,696 <= 4,294,967,295 = U32_MAX
+	 *
+	 * Proof 26: The result of aud_tap does not overflow.
+	 * From Proof 15, the numerator <= 413,902,848 and from Proof 16, the denominator > 410
+	 * Thus, the divsion will be at most 1,009,519.
+	 * pdata->usbcss_hs.aud_tap_offset <= MAX_TAP_OFFSET = 1,023
+	 * The sum will thus be bounded by 1,009,519 + 1,023 = 1,010,542 <= 2,147,483,647 = S32_MAX
+	 * Note: gnd_tap won't underflow either since pdata->usbcss_hs.aud_tap_offset >= -1,023
+	 */
+	*gnd_tap = (u32) ((s32) ((1000 * v_gnd1 + 10 * pdata->usbcss_hs.k_gnd_times_100 * v_gnd2
+				  + gnd_denom / 2) / gnd_denom) + pdata->usbcss_hs.gnd_tap_offset);
+	if (*gnd_tap > MAX_TAP)
+		*gnd_tap = MAX_TAP;
+	else if (*gnd_tap < MIN_TAP)
+		*gnd_tap = MIN_TAP;
+	return;
+
+err_data:
+	*aud_tap = 0;
+	*gnd_tap = 0;
+}
+
+struct usbcss_hs_attr {
+	struct wcd939x_priv *priv;
+	struct kobj_attribute attr;
+	int index;
+};
+
+static char *usbcss_sysfs_files[] = {
+	"rdson",
+	"r2",
+	"r3",
+	"r4",
+	"r5",
+	"r6",
+	"r7",
+	"lin-k-aud",
+	"lin-k-gnd",
+	"xtalk_config",
+};
+
+static ssize_t usbcss_sysfs_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf,
+		size_t count)
+{
+	struct usbcss_hs_attr *usbc_attr;
+	struct wcd939x_priv *wcd939x;
+	struct wcd939x_pdata *pdata;
+	struct wcd939x_usbcss_hs_params *usbcss_hs;
+	long val;
+	int rc;
+	u32 aud_tap = 0, gnd_tap = 0;
+	bool update_xtalk = false, update_linearizer = false;
+
+	usbc_attr = container_of(attr, struct usbcss_hs_attr, attr);
+	wcd939x = usbc_attr->priv;
+	pdata = dev_get_platdata(wcd939x->dev);
+
+	if (!wcd939x || !pdata)
+		return -EINVAL;
+
+	usbcss_hs = &pdata->usbcss_hs;
+
+	rc = kstrtol(buf, 0, &val);
+	if (rc)
+		return rc;
+
+	if (strcmp(attr->attr.name, "rdson") == 0) {
+		if (val > MAX_USBCSS_HS_IMPEDANCE_MOHMS) {
+			dev_err(wcd939x->dev, "%s: Value %d out of HS impedance range %d\n",
+			__func__, val, MAX_USBCSS_HS_IMPEDANCE_MOHMS);
+			return count;
+		}
+		usbcss_hs->r_gnd_ext_fet_customer_mohms = val;
+		update_linearizer = usbcss_hs->xtalk_config == XTALK_ANALOG;
+	} else if (strcmp(attr->attr.name, "r2") == 0) {
+		if (val > MAX_USBCSS_HS_IMPEDANCE_MOHMS) {
+			dev_err(wcd939x->dev, "%s: Value %d out of HS impedance range %d\n",
+			__func__, val, MAX_USBCSS_HS_IMPEDANCE_MOHMS);
+			return count;
+		}
+		usbcss_hs->r_conn_par_load_pos_mohms = val;
+	} else if (strcmp(attr->attr.name, "r3") == 0) {
+		if (val > MAX_USBCSS_HS_IMPEDANCE_MOHMS) {
+			dev_err(wcd939x->dev, "%s: Value %d out of HS impedance range %d\n",
+			__func__, val, MAX_USBCSS_HS_IMPEDANCE_MOHMS);
+			return count;
+		}
+		usbcss_hs->r3 = val;
+		update_linearizer = true;
+	} else if (strcmp(attr->attr.name, "r4") == 0) {
+		if (val > MAX_USBCSS_HS_IMPEDANCE_MOHMS) {
+			dev_err(wcd939x->dev, "%s: Value %d out of HS impedance range %d\n",
+			__func__, val, MAX_USBCSS_HS_IMPEDANCE_MOHMS);
+			return count;
+		}
+		usbcss_hs->r4 = val;
+		update_xtalk = true;
+		update_linearizer = true;
+
+		switch (usbcss_hs->xtalk_config) {
+		case XTALK_DIGITAL:
+			usbcss_hs->r_gnd_par_route2_mohms = usbcss_hs->r6 + val;
+			break;
+		case XTALK_ANALOG:
+			usbcss_hs->r_gnd_par_route1_mohms = usbcss_hs->r5 + val;
+			break;
+		case XTALK_NONE:
+			fallthrough;
+		default:
+			return count;
+		}
+	} else if (strcmp(attr->attr.name, "r5") == 0) {
+		if (val > MAX_USBCSS_HS_IMPEDANCE_MOHMS) {
+			dev_err(wcd939x->dev, "%s: Value %d out of HS impedance range %d\n",
+			__func__, val, MAX_USBCSS_HS_IMPEDANCE_MOHMS);
+			return count;
+		}
+		usbcss_hs->r5 = val;
+
+		switch (usbcss_hs->xtalk_config) {
+		case XTALK_ANALOG:
+			update_xtalk = true;
+			update_linearizer = true;
+			usbcss_hs->r_gnd_par_route1_mohms = val + usbcss_hs->r4;
+			break;
+		case XTALK_DIGITAL:
+			fallthrough;
+		case XTALK_NONE:
+			fallthrough;
+		default:
+			return count;
+		}
+	} else if (strcmp(attr->attr.name, "r6") == 0) {
+		if (val > MAX_USBCSS_HS_IMPEDANCE_MOHMS) {
+			dev_err(wcd939x->dev, "%s: Value %d out of HS impedance range %d\n",
+			__func__, val, MAX_USBCSS_HS_IMPEDANCE_MOHMS);
+			return count;
+		}
+		usbcss_hs->r6 = val;
+
+		switch (usbcss_hs->xtalk_config) {
+		case XTALK_DIGITAL:
+			update_xtalk = true;
+			update_linearizer = true;
+			usbcss_hs->r_gnd_par_route2_mohms = val + usbcss_hs->r4;
+			break;
+		case XTALK_ANALOG:
+			fallthrough;
+		case XTALK_NONE:
+			fallthrough;
+		default:
+			return count;
+		}
+	} else if (strcmp(attr->attr.name, "r7") == 0) {
+		if (val > MAX_USBCSS_HS_IMPEDANCE_MOHMS) {
+			dev_err(wcd939x->dev, "%s: Value %d out of HS impedance range %d\n",
+			__func__, val, MAX_USBCSS_HS_IMPEDANCE_MOHMS);
+			return count;
+		}
+		usbcss_hs->r7 = val;
+
+		switch (usbcss_hs->xtalk_config) {
+		case XTALK_DIGITAL:
+			update_xtalk = true;
+			update_linearizer = true;
+			usbcss_hs->r_gnd_par_route1_mohms = val;
+			break;
+		case XTALK_ANALOG:
+			fallthrough;
+		case XTALK_NONE:
+			fallthrough;
+		default:
+			return count;
+		}
+	} else if (strcmp(attr->attr.name, "lin-k-aud") == 0) {
+		if (val < MIN_K_TIMES_100 || val > MAX_K_TIMES_100) {
+			dev_err(wcd939x->dev, "%s: Value %d out of bounds. Min: %d, Max: %d\n",
+			__func__, val, MIN_K_TIMES_100, MAX_K_TIMES_100);
+			return count;
+		}
+		usbcss_hs->k_aud_times_100 = val;
+		update_linearizer = true;
+	} else if (strcmp(attr->attr.name, "lin-k-gnd") == 0) {
+		if (val < MIN_K_TIMES_100 || val > MAX_K_TIMES_100) {
+			dev_err(wcd939x->dev, "%s: Value %d out of bounds. Min: %d, Max: %d\n",
+			__func__, val, MIN_K_TIMES_100, MAX_K_TIMES_100);
+			return count;
+		}
+		usbcss_hs->k_gnd_times_100 = val;
+		update_linearizer = true;
+	} else if (strcmp(attr->attr.name, "xtalk_config") == 0) {
+		pdata->usbcss_hs.xtalk_config = val;
+		update_xtalk = true;
+
+		switch (val) {
+		case XTALK_NONE:
+			usbcss_hs->scale_l = MAX_XTALK_SCALE;
+			usbcss_hs->scale_r = MAX_XTALK_SCALE;
+			usbcss_hs->alpha_l = MIN_XTALK_ALPHA;
+			usbcss_hs->alpha_r = MIN_XTALK_ALPHA;
+			break;
+		case XTALK_DIGITAL:
+			usbcss_hs->r_gnd_par_route2_mohms = usbcss_hs->r6 + usbcss_hs->r4;
+			usbcss_hs->r_gnd_par_route1_mohms = usbcss_hs->r7;
+			update_linearizer = true;
+			break;
+		case XTALK_ANALOG:
+			usbcss_hs->r_gnd_par_route1_mohms = usbcss_hs->r5 + usbcss_hs->r4;
+			usbcss_hs->r_gnd_par_route2_mohms = 1;
+			update_linearizer = true;
+			break;
+		default:
+			return count;
+		}
+	}
+
+	if (update_xtalk) {
+		update_xtalk_scale_and_alpha(pdata, wcd939x->regmap);
+		regmap_update_bits(wcd939x->regmap, WCD939X_HPHL_RX_PATH_SEC0,
+				0x1F, pdata->usbcss_hs.scale_l);
+		regmap_update_bits(wcd939x->regmap, WCD939X_HPHL_RX_PATH_SEC1,
+				0xFF, pdata->usbcss_hs.alpha_l);
+		regmap_update_bits(wcd939x->regmap, WCD939X_HPHL_RX_PATH_SEC0 + 1,
+				0x1F, pdata->usbcss_hs.scale_r);
+		regmap_update_bits(wcd939x->regmap, WCD939X_HPHL_RX_PATH_SEC1 + 1,
+				0xFF, pdata->usbcss_hs.alpha_r);
+		dev_err(wcd939x->dev, "%s: Updated xtalk thru sysfs\n",
+			__func__);
+	}
+
+	if (update_linearizer) {
+		get_linearizer_taps(pdata, &aud_tap, &gnd_tap);
+		wcd_usbss_set_linearizer_sw_tap(aud_tap, gnd_tap);
+		dev_err(wcd939x->dev, "%s: Updated linearizer thru sysfs\n",
+			__func__);
+	}
+
+	return count;
+}
+
+static ssize_t usbcss_sysfs_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct usbcss_hs_attr *usbc_attr;
+	struct wcd939x_priv *wcd939x;
+	struct wcd939x_pdata *pdata;
+
+	usbc_attr = container_of(attr, struct usbcss_hs_attr, attr);
+	wcd939x = usbc_attr->priv;
+	pdata = dev_get_platdata(wcd939x->dev);
+
+	if (strcmp(attr->attr.name, "rdson") == 0)
+		return scnprintf(buf, 10, "%d\n", pdata->usbcss_hs.r_gnd_ext_fet_customer_mohms);
+	else if (strcmp(attr->attr.name, "r2") == 0)
+		return scnprintf(buf, 10, "%d\n", pdata->usbcss_hs.r_conn_par_load_pos_mohms);
+	else if (strcmp(attr->attr.name, "r3") == 0)
+		return scnprintf(buf, 10, "%d\n", pdata->usbcss_hs.r3);
+	else if (strcmp(attr->attr.name, "r4") == 0)
+		return scnprintf(buf, 10, "%d\n", pdata->usbcss_hs.r4);
+	else if (strcmp(attr->attr.name, "r5") == 0)
+		return scnprintf(buf, 10, "%d\n", pdata->usbcss_hs.r5);
+	else if (strcmp(attr->attr.name, "r6") == 0)
+		return scnprintf(buf, 10, "%d\n", pdata->usbcss_hs.r6);
+	else if (strcmp(attr->attr.name, "r7") == 0)
+		return scnprintf(buf, 10, "%d\n", pdata->usbcss_hs.r7);
+	else if (strcmp(attr->attr.name, "lin-k-aud") == 0)
+		return scnprintf(buf, 10, "%d\n", pdata->usbcss_hs.k_aud_times_100);
+	else if (strcmp(attr->attr.name, "lin-k-gnd") == 0)
+		return scnprintf(buf, 10, "%d\n", pdata->usbcss_hs.k_gnd_times_100);
+	else if (strcmp(attr->attr.name, "xtalk_config") == 0)
+		return scnprintf(buf, 10, "%d\n", pdata->usbcss_hs.xtalk_config);
+
+	return 0;
+}
+
+static int create_sysfs_entry_file(struct wcd939x_priv *wcd939x, char *name, int mode,
+		int index, struct kobject *parent)
+{
+	struct usbcss_hs_attr *usbc_attr;
+	char *name_copy;
+
+	usbc_attr = devm_kmalloc(wcd939x->dev, sizeof(*usbc_attr), GFP_KERNEL);
+	if (!usbc_attr)
+		return -ENOMEM;
+
+	name_copy = devm_kstrdup(wcd939x->dev, name, GFP_KERNEL);
+	if (!name_copy)
+		return -ENOMEM;
+
+	usbc_attr->priv = wcd939x;
+	usbc_attr->index = index;
+	usbc_attr->attr.attr.name = name_copy;
+	usbc_attr->attr.attr.mode = mode;
+	usbc_attr->attr.show = usbcss_sysfs_show;
+	usbc_attr->attr.store = usbcss_sysfs_store;
+	sysfs_attr_init(&usbc_attr->attr.attr);
+
+	return sysfs_create_file(parent, &usbc_attr->attr.attr);
+}
+
+static int usbcss_hs_sysfs_init(struct wcd939x_priv *wcd939x)
+{
+	int rc = 0;
+	int i = 0;
+	struct kobject *kobj = NULL;
+
+	if (!wcd939x || !wcd939x->dev) {
+		pr_err("%s: Invalid wcd939x private data.\n", __func__);
+		return -EINVAL;
+	}
+
+	kobj = kobject_create_and_add("usbcss_hs", kernel_kobj);
+	if (!kobj) {
+		dev_err(wcd939x->dev, "%s: Could not create the USBC-SS HS kobj.\n", __func__);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(usbcss_sysfs_files); i++) {
+		rc = create_sysfs_entry_file(wcd939x, usbcss_sysfs_files[i],
+				0644, i, kobj);
+	}
+
+	return 0;
+}
+
+static void wcd939x_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl, uint32_t *zr)
 {
 	struct snd_soc_component *component = mbhc->component;
 	struct wcd939x_priv *wcd939x = dev_get_drvdata(component->dev);
+	struct wcd939x_pdata *pdata = dev_get_platdata(wcd939x->dev);
 	s16 reg0, reg1, reg2, reg3, reg4;
-	int32_t z1L, z1R, z1Ls;
+	uint32_t zdiff_val = 0, r_gnd_int_fet_mohms = 0, rl_eff_mohms = 0, r_gnd_ext_fet_mohms = 0;
+	uint32_t aud_tap = 0, gnd_tap = 0;
+	uint32_t *zdiff = &zdiff_val;
+	int32_t z1L, z1R, z1Ls, z1Diff;
 	int zMono, z_diff1, z_diff2;
 	bool is_fsm_disable = false;
-	struct wcd939x_mbhc_zdet_param zdet_param[] = {
-		{4, 0, 4, 0x08, 0x14, 0x18}, /* < 32ohm */
-		{4, 0, 6, 0x18, 0x60, 0x78}, /* 32ohm < Z < 400ohm */
-		{1, 4, 5, 0x18, 0x7C, 0x90}, /* 400ohm < Z < 1200ohm */
-		{1, 6, 7, 0x18, 0x7C, 0x90}, /* >1200ohm */
-	};
-	struct wcd939x_mbhc_zdet_param *zdet_param_ptr = NULL;
-	s16 d1_a[][4] = {
-		{0, 30, 90, 30},
-		{0, 30, 30, 6},
-		{0, 30, 30, 5},
-		{0, 30, 30, 5},
-	};
-	s16 *d1 = NULL;
+	struct wcd939x_mbhc_zdet_param zdet_param = {4, 0, 6, 0x18, 0x60, 0x78};
+	struct wcd939x_mbhc_zdet_param *zdet_param_ptr = &zdet_param;
+	s16 d1[] = {0, 30, 30, 6};
+	uint32_t cached_regs[4][2] = {{WCD_USBSS_EXT_LIN_EN, 0}, {WCD_USBSS_EXT_SW_CTRL_1, 0},
+				      {WCD_USBSS_MG1_BIAS, 0}, {WCD_USBSS_MG2_BIAS, 0}};
+	uint32_t l_3_6V_regs[4][2] = {{WCD_USBSS_EXT_LIN_EN, 0x00}, {WCD_USBSS_EXT_SW_CTRL_1, 0x00},
+				      {WCD_USBSS_MG1_BIAS, 0x0E}, {WCD_USBSS_MG2_BIAS, 0x0E}};
+	uint32_t diff_regs[2][2] = {{WCD_USBSS_EXT_LIN_EN, 0x00}, {WCD_USBSS_EXT_SW_CTRL_1, 0xE8}};
 
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
+	/* Turn on RX supplies */
+	if (wcd939x->version == WCD939X_VERSION_2_0) {
+		/* Start up Buck/Flyback, Enable RX bias, Use MBHC RCO for MBHC Zdet, Enable Vneg */
+		regmap_update_bits(wcd939x->regmap, WCD939X_ZDET_VNEG_CTL, 0x4C, 0x4C);
+		/* Wait 100us for settling */
+		usleep_range(100, 110);
+		/* Enable VNEGDAC_LDO */
+		regmap_update_bits(wcd939x->regmap, WCD939X_ZDET_VNEG_CTL, 0x10, 0x10);
+		/* Wait 100us for settling */
+		usleep_range(100, 110);
+		/* Keep PA left/right channels disabled */
+		regmap_update_bits(wcd939x->regmap, WCD939X_ZDET_VNEG_CTL, 0x01, 0x01);
+		/* Enable VPOS */
+		regmap_update_bits(wcd939x->regmap, WCD939X_ZDET_VNEG_CTL, 0x20, 0x20);
+		/* Wait 500us for settling */
+		usleep_range(500, 510);
+	}
+
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+	/* Cache relevant USB-SS registers */
+	wcd_usbss_register_update(cached_regs, WCD_USBSS_READ, ARRAY_SIZE(cached_regs));
+#endif
+
+	/* Store register values */
 	reg0 = snd_soc_component_read(component, WCD939X_MBHC_BTN5);
 	reg1 = snd_soc_component_read(component, WCD939X_MBHC_BTN6);
 	reg2 = snd_soc_component_read(component, WCD939X_MBHC_BTN7);
 	reg3 = snd_soc_component_read(component, WCD939X_CTL_CLK);
 	reg4 = snd_soc_component_read(component, WCD939X_ZDET_ANA_CTL);
 
+	/* Disable the detection FSM */
 	if (snd_soc_component_read(component, WCD939X_MBHC_ELECT) & 0x80) {
 		is_fsm_disable = true;
 		regmap_update_bits(wcd939x->regmap,
@@ -545,86 +1333,127 @@ static void wcd939x_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 
 	/* Turn off 100k pull down on HPHL */
 	regmap_update_bits(wcd939x->regmap,
-			   WCD939X_MBHC_MECH, 0x01, 0x00);
+			 WCD939X_MBHC_MECH, 0x01, 0x00);
 
 	/* Disable surge protection before impedance detection.
 	 * This is done to give correct value for high impedance.
 	 */
 	regmap_update_bits(wcd939x->regmap,
-				WCD939X_HPHLR_SURGE_EN, 0xC0, 0x00);
+			WCD939X_HPHLR_SURGE_EN, 0xC0, 0x00);
 	/* 1ms delay needed after disable surge protection */
 	usleep_range(1000, 1010);
 
-	/* First get impedance on Left */
-	d1 = d1_a[1];
-	zdet_param_ptr = &zdet_param[1];
-	wcd939x_mbhc_zdet_ramp(component, zdet_param_ptr, &z1L, NULL, d1);
-
-	if (!WCD939X_MBHC_IS_SECOND_RAMP_REQUIRED(z1L))
-		goto left_ch_impedance;
-
-	/* Second ramp for left ch */
-	if (z1L < WCD939X_ZDET_VAL_32) {
-		zdet_param_ptr = &zdet_param[0];
-		d1 = d1_a[0];
-	} else if ((z1L > WCD939X_ZDET_VAL_400) &&
-		  (z1L <= WCD939X_ZDET_VAL_1200)) {
-		zdet_param_ptr = &zdet_param[2];
-		d1 = d1_a[2];
-	} else if (z1L > WCD939X_ZDET_VAL_1200) {
-		zdet_param_ptr = &zdet_param[3];
-		d1 = d1_a[3];
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+	/* Disable sense switch and MIC for USB-C analog platforms */
+	if (mbhc->mbhc_cfg->enable_usbc_analog) {
+		wcd_usbss_set_switch_settings_enable(SENSE_SWITCHES, USBSS_SWITCH_DISABLE);
+		wcd_usbss_set_switch_settings_enable(MIC_SWITCHES, USBSS_SWITCH_DISABLE);
 	}
-	wcd939x_mbhc_zdet_ramp(component, zdet_param_ptr, &z1L, NULL, d1);
+#endif
 
-left_ch_impedance:
-	if ((z1L == WCD939X_ZDET_FLOATING_IMPEDANCE) ||
-		(z1L > WCD939X_ZDET_VAL_100K)) {
+	/* L-channel impedance */
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+	wcd_usbss_register_update(l_3_6V_regs, WCD_USBSS_WRITE, ARRAY_SIZE(l_3_6V_regs));
+#endif
+	wcd939x_mbhc_zdet_ramp(component, zdet_param_ptr, &z1L, NULL, d1);
+	if ((z1L == WCD939X_ZDET_FLOATING_IMPEDANCE) || (z1L > WCD939X_ZDET_VAL_100K)) {
 		*zl = WCD939X_ZDET_FLOATING_IMPEDANCE;
-		zdet_param_ptr = &zdet_param[1];
-		d1 = d1_a[1];
 	} else {
-		*zl = z1L/1000;
+		*zl = z1L;
 		wcd939x_wcd_mbhc_qfuse_cal(component, zl, 0);
 	}
-	dev_dbg(component->dev, "%s: impedance on HPH_L = %d(ohms)\n",
+	/* Differential measurement for USB-C analog platforms */
+	if (mbhc->mbhc_cfg->enable_usbc_analog) {
+		dev_dbg(component->dev, "%s: effective impedance on HPH_L = %d(mohms)\n",
+			__func__, *zl);
+		goto diff_impedance;
+	}
+	dev_dbg(component->dev, "%s: impedance on HPH_L = %d(mohms)\n",
 		__func__, *zl);
 
-	/* Start of right impedance ramp and calculation */
+	/* R-channel impedance */
 	wcd939x_mbhc_zdet_ramp(component, zdet_param_ptr, NULL, &z1R, d1);
-	if (WCD939X_MBHC_IS_SECOND_RAMP_REQUIRED(z1R)) {
-		if (((z1R > WCD939X_ZDET_VAL_1200) &&
-			(zdet_param_ptr->noff == 0x6)) ||
-			((*zl) != WCD939X_ZDET_FLOATING_IMPEDANCE))
-			goto right_ch_impedance;
-		/* Second ramp for right ch */
-		if (z1R < WCD939X_ZDET_VAL_32) {
-			zdet_param_ptr = &zdet_param[0];
-			d1 = d1_a[0];
-		} else if ((z1R > WCD939X_ZDET_VAL_400) &&
-			(z1R <= WCD939X_ZDET_VAL_1200)) {
-			zdet_param_ptr = &zdet_param[2];
-			d1 = d1_a[2];
-		} else if (z1R > WCD939X_ZDET_VAL_1200) {
-			zdet_param_ptr = &zdet_param[3];
-			d1 = d1_a[3];
-		}
-		wcd939x_mbhc_zdet_ramp(component, zdet_param_ptr, NULL, &z1R, d1);
-	}
-right_ch_impedance:
-	if ((z1R == WCD939X_ZDET_FLOATING_IMPEDANCE) ||
-		(z1R > WCD939X_ZDET_VAL_100K)) {
+	if ((z1R == WCD939X_ZDET_FLOATING_IMPEDANCE) || (z1R > WCD939X_ZDET_VAL_100K)) {
 		*zr = WCD939X_ZDET_FLOATING_IMPEDANCE;
 	} else {
-		*zr = z1R/1000;
-		wcd939x_wcd_mbhc_qfuse_cal(component, zr, 1);
+		*zr = z1R;
+		wcd939x_wcd_mbhc_qfuse_cal(component, zr, 4);
 	}
-	dev_dbg(component->dev, "%s: impedance on HPH_R = %d(ohms)\n",
+	dev_dbg(component->dev, "%s: impedance on HPH_R = %d(mohms)\n",
 		__func__, *zr);
+		/* Convert from mohms to ohms (rounded) */
+	*zl = (*zl + OHMS_TO_MILLIOHMS / 2) / OHMS_TO_MILLIOHMS;
+	*zr = (*zr + OHMS_TO_MILLIOHMS / 2) / OHMS_TO_MILLIOHMS;
+	goto mono_stereo_detection;
 
+diff_impedance:
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+	/* Disable AGND switch */
+	wcd_usbss_set_switch_settings_enable(AGND_SWITCHES, USBSS_SWITCH_DISABLE);
+	wcd_usbss_register_update(diff_regs, WCD_USBSS_WRITE, ARRAY_SIZE(diff_regs));
+#endif
+	/* Enable HPHR NCLAMP */
+	regmap_update_bits(wcd939x->regmap, WCD939X_HPHLR_SURGE_MISC1, 0x08, 0x08);
+
+	/* Diffrential impedance */
+	wcd939x_mbhc_zdet_ramp(component, zdet_param_ptr, &z1Diff, NULL, d1);
+	if ((z1Diff == WCD939X_ZDET_FLOATING_IMPEDANCE) || (z1Diff > WCD939X_ZDET_VAL_100K)) {
+		*zdiff = WCD939X_ZDET_FLOATING_IMPEDANCE;
+	} else {
+		*zdiff = z1Diff;
+		wcd939x_wcd_mbhc_qfuse_cal(component, zdiff, 0);
+	}
+	dev_dbg(component->dev, "%s: effective impedance on HPH_diff after calib = %d(mohms)\n",
+		__func__, *zdiff);
+	/* Disable HPHR NCLAMP */
+	regmap_update_bits(wcd939x->regmap, WCD939X_HPHLR_SURGE_MISC1, 0x08, 0x00);
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+	/* Enable AGND switch */
+	wcd_usbss_set_switch_settings_enable(AGND_SWITCHES, USBSS_SWITCH_ENABLE);
+	/* Get ground internal resistance based on orientation */
+	if (wcd_usbss_get_sbu_switch_orientation() == GND_SBU2_ORIENTATION_A) {
+		r_gnd_int_fet_mohms = pdata->usbcss_hs.r_gnd_sbu2_int_fet_mohms;
+	} else if (wcd_usbss_get_sbu_switch_orientation() == GND_SBU1_ORIENTATION_B) {
+		r_gnd_int_fet_mohms = pdata->usbcss_hs.r_gnd_sbu1_int_fet_mohms;
+	} else {
+		*zl = 0;
+		*zr = 0;
+		dev_dbg(component->dev, "%s: Invalid SBU switch orientation\n", __func__);
+		goto zdet_complete;
+	}
+#endif
+	/* Compute external fet and effective load impedance */
+	r_gnd_ext_fet_mohms = *zl - *zdiff / 2 + pdata->usbcss_hs.r_surge_mohms / 2 -
+			      pdata->usbcss_hs.r_gnd_par_tot_mohms - r_gnd_int_fet_mohms;
+	rl_eff_mohms = *zdiff / 2 - pdata->usbcss_hs.r_aud_int_fet_r_mohms -
+		       pdata->usbcss_hs.r_gnd_ext_fet_mohms - pdata->usbcss_hs.r_surge_mohms / 2 -
+		       pdata->usbcss_hs.r_gnd_par_tot_mohms;
+	/* Store values */
+	*zl = (rl_eff_mohms - pdata->usbcss_hs.r_conn_par_load_pos_mohms - pdata->usbcss_hs.r3 +
+		   OHMS_TO_MILLIOHMS / 2) / OHMS_TO_MILLIOHMS;
+	*zr = *zl;
+
+	/* Update USBC-SS HS params */
+	if (rl_eff_mohms > MAX_RL_EFF_MOHMS)
+		rl_eff_mohms = MAX_RL_EFF_MOHMS;
+	else if (rl_eff_mohms == 0)
+		rl_eff_mohms = MIN_RL_EFF_MOHMS;
+	pdata->usbcss_hs.r_load_eff_l_mohms = rl_eff_mohms;
+	pdata->usbcss_hs.r_load_eff_r_mohms = rl_eff_mohms;
+	update_ext_fet_res(pdata, r_gnd_ext_fet_mohms);
+	update_xtalk_scale_and_alpha(pdata, wcd939x->regmap);
+	dev_dbg(component->dev, "%s: Xtalk scale is 0x%x and alpha is 0x%x\n",
+		__func__, pdata->usbcss_hs.scale_l, pdata->usbcss_hs.alpha_l);
+	get_linearizer_taps(pdata, &aud_tap, &gnd_tap);
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+	wcd_usbss_set_linearizer_sw_tap(aud_tap, gnd_tap);
+#endif
+	dev_dbg(component->dev, "%s: Linearizer aud_tap is 0x%x and gnd_tap is 0x%x\n",
+		__func__, aud_tap, gnd_tap);
+
+mono_stereo_detection:
 	/* Mono/stereo detection */
-	if ((*zl == WCD939X_ZDET_FLOATING_IMPEDANCE) &&
-		(*zr == WCD939X_ZDET_FLOATING_IMPEDANCE)) {
+	if ((*zl == WCD939X_ZDET_FLOATING_IMPEDANCE) && (*zr == WCD939X_ZDET_FLOATING_IMPEDANCE)) {
 		dev_dbg(component->dev,
 			"%s: plug type is invalid or extension cable\n",
 			__func__);
@@ -642,7 +1471,7 @@ right_ch_impedance:
 	}
 	snd_soc_component_update_bits(component, WCD939X_R_ATEST, 0x02, 0x02);
 	snd_soc_component_update_bits(component, WCD939X_PA_CTL2, 0x40, 0x01);
-	wcd939x_mbhc_zdet_ramp(component, &zdet_param[1], &z1Ls, NULL, d1);
+	wcd939x_mbhc_zdet_ramp(component, zdet_param_ptr, &z1Ls, NULL, d1);
 	snd_soc_component_update_bits(component, WCD939X_PA_CTL2, 0x40, 0x00);
 	snd_soc_component_update_bits(component, WCD939X_R_ATEST, 0x02, 0x00);
 	z1Ls /= 1000;
@@ -661,10 +1490,18 @@ right_ch_impedance:
 		mbhc->hph_type = WCD_MBHC_HPH_MONO;
 	}
 
+zdet_complete:
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+	/* Enable sense switch and MIC for USB-C analog platforms */
+	if (mbhc->mbhc_cfg->enable_usbc_analog) {
+		wcd_usbss_set_switch_settings_enable(SENSE_SWITCHES, USBSS_SWITCH_ENABLE);
+		wcd_usbss_set_switch_settings_enable(MIC_SWITCHES, USBSS_SWITCH_ENABLE);
+	}
+#endif
 	/* Enable surge protection again after impedance detection */
 	regmap_update_bits(wcd939x->regmap,
 			   WCD939X_HPHLR_SURGE_EN, 0xC0, 0xC0);
-zdet_complete:
+
 	snd_soc_component_write(component, WCD939X_MBHC_BTN5, reg0);
 	snd_soc_component_write(component, WCD939X_MBHC_BTN6, reg1);
 	snd_soc_component_write(component, WCD939X_MBHC_BTN7, reg2);
@@ -682,6 +1519,28 @@ zdet_complete:
 	if (is_fsm_disable)
 		regmap_update_bits(wcd939x->regmap,
 				   WCD939X_MBHC_ELECT, 0x80, 0x80);
+
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
+	wcd_usbss_register_update(cached_regs, WCD_USBSS_WRITE, ARRAY_SIZE(cached_regs));
+#endif
+
+	/* Turn off RX supplies */
+	if (wcd939x->version == WCD939X_VERSION_2_0) {
+		/* Set VPOS to be controlled by RX */
+		regmap_update_bits(wcd939x->regmap, WCD939X_ZDET_VNEG_CTL, 0x20, 0x00);
+		/* Wait 500us for settling */
+		usleep_range(500, 510);
+		/* Set PA Left/Right channels and VNEGDAC_LDO to be controlled by RX */
+		regmap_update_bits(wcd939x->regmap, WCD939X_ZDET_VNEG_CTL, 0x11, 0x00);
+		/* Wait 100us for settling */
+		usleep_range(100, 110);
+		/* Set Vneg mode and enable to be controlled by RX */
+		regmap_update_bits(wcd939x->regmap, WCD939X_ZDET_VNEG_CTL, 0x06, 0x00);
+		/* Wait 100us for settling */
+		usleep_range(100, 110);
+		/* Set RX bias to be controlled by RX and set Buck/Flyback back to SWR Rx clock */
+		regmap_update_bits(wcd939x->regmap, WCD939X_ZDET_VNEG_CTL, 0x48, 0x00);
+	}
 }
 
 static void wcd939x_mbhc_gnd_det_ctrl(struct snd_soc_component *component,
@@ -809,6 +1668,25 @@ static void wcd939x_mbhc_bcs_enable(struct wcd_mbhc *mbhc,
 		wcd939x_disable_bcs_before_slow_insert(mbhc->component, true);
 }
 
+static void wcd939x_surge_reset_routine(struct wcd_mbhc *mbhc)
+{
+	struct wcd939x_priv *wcd939x = snd_soc_component_get_drvdata(mbhc->component);
+
+	regcache_mark_dirty(wcd939x->regmap);
+	regcache_sync(wcd939x->regmap);
+}
+
+static void wcd939x_mbhc_zdet_leakage_resistance(struct wcd_mbhc *mbhc,
+							bool enable)
+{
+	if (enable)
+		snd_soc_component_update_bits(mbhc->component, WCD939X_ZDET_BIAS_CTL,
+				0x80, 0x80); /* disable 1M pull-up */
+	else
+		snd_soc_component_update_bits(mbhc->component, WCD939X_ZDET_BIAS_CTL,
+				0x80, 0x00); /* enable 1M pull-up */
+}
+
 static const struct wcd_mbhc_cb mbhc_cb = {
 	.request_irq = wcd939x_mbhc_request_irq,
 	.irq_control = wcd939x_mbhc_irq_control,
@@ -834,6 +1712,8 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.mbhc_moisture_polling_ctrl = wcd939x_mbhc_moisture_polling_ctrl,
 	.mbhc_moisture_detect_en = wcd939x_mbhc_moisture_detect_en,
 	.bcs_enable = wcd939x_mbhc_bcs_enable,
+	.surge_reset_routine = wcd939x_surge_reset_routine,
+	.zdet_leakage_resistance = wcd939x_mbhc_zdet_leakage_resistance,
 };
 
 static int wcd939x_get_hph_type(struct snd_kcontrol *kcontrol,
@@ -1059,6 +1939,7 @@ int wcd939x_mbhc_init(struct wcd939x_mbhc **mbhc,
 	struct wcd_mbhc *wcd_mbhc = NULL;
 	int ret = 0;
 	struct wcd939x_pdata *pdata;
+	struct wcd939x_priv *wcd939x;
 
 	if (!component) {
 		pr_err("%s: component is NULL\n", __func__);
@@ -1081,6 +1962,11 @@ int wcd939x_mbhc_init(struct wcd939x_mbhc **mbhc,
 
 	/* Setting default mbhc detection logic to ADC */
 	wcd_mbhc->mbhc_detection_logic = WCD_DETECTION_ADC;
+
+	/* Down ramp timer set-up */
+	timer_setup(&wcd939x_mbhc->rdown_timer, rdown_timer_callback, 0);
+	wcd939x_mbhc->rdown_prev_iter = 0;
+	wcd939x_mbhc->rdown_timer_complete = false;
 
 	pdata = dev_get_platdata(component->dev);
 	if (!pdata) {
@@ -1106,8 +1992,18 @@ int wcd939x_mbhc_init(struct wcd939x_mbhc **mbhc,
 	snd_soc_add_component_controls(component, hph_type_detect_controls,
 				   ARRAY_SIZE(hph_type_detect_controls));
 
+	wcd939x = dev_get_drvdata(component->dev);
+	if (!wcd939x) {
+		dev_err(component->dev, "%s: wcd939x pointer is NULL\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	usbcss_hs_sysfs_init(wcd939x);
+
 	return 0;
 err:
+	if (wcd939x_mbhc)
+		del_timer(&wcd939x_mbhc->rdown_timer);
 	return ret;
 }
 EXPORT_SYMBOL(wcd939x_mbhc_init);
@@ -1133,7 +2029,9 @@ void wcd939x_mbhc_deinit(struct snd_soc_component *component)
 	}
 
 	wcd939x_mbhc = wcd939x->mbhc;
-	if (wcd939x_mbhc)
+	if (wcd939x_mbhc) {
+		del_timer(&wcd939x_mbhc->rdown_timer);
 		wcd_mbhc_deinit(&wcd939x_mbhc->wcd_mbhc);
+	}
 }
 EXPORT_SYMBOL(wcd939x_mbhc_deinit);
