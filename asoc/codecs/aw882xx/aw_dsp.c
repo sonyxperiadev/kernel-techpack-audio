@@ -70,61 +70,20 @@ static uint32_t afe_param_msg_id[MSG_PARAM_ID_MAX] = {
 };
 
 /***************dsp communicate**************/
-#ifdef AW_QCOM_PLATFORM
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 1))
 #include <dsp/msm_audio_ion.h>
 #include <dsp/q6afe-v2.h>
 #include <dsp/q6audio-v2.h>
 #include <dsp/q6adm-v2.h>
-#else
-#include <linux/msm_audio_ion.h>
-#include <sound/q6afe-v2.h>
-#include <sound/q6audio-v2.h>
-#include <sound/q6adm-v2.h>
-#include <sound/adsp_err.h>
-#endif
-#endif
 
 #define AW_COPP_MODULE_ID (0X10013D02)			/*SKT module id*/
 #define AW_COPP_PARAMS_ID_AWDSP_ENABLE (0X10013D14)	/*SKT enable param id*/
 
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-extern int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size);
-extern int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer, int16_t size, uint32_t *buf_len);
-#elif defined AW_QCOM_PLATFORM
 extern int afe_get_topology(int port_id);
 extern int aw_send_afe_cal_apr(uint32_t param_id,
 	void *buf, int cmd_size, bool write);
 extern int aw_send_afe_rx_module_enable(void *buf, int size);
 extern int aw_send_afe_tx_module_enable(void *buf, int size);
-#else
-static int aw_send_afe_cal_apr(uint32_t param_id,
-	void *buf, int cmd_size, bool write)
-{
-	return 0;
-}
-static int aw_send_afe_rx_module_enable(void *buf, int size)
-{
-	return 0;
-}
-static int aw_send_afe_tx_module_enable(void *buf, int size)
-{
-	return 0;
-}
-static int afe_get_topology(int port_id)
-{
-	return 0;
-}
-
-#endif
-
-#ifdef AW_QCOM_PLATFORM
 extern void aw_set_port_id(int tx_port_id, int rx_port_id);
-#else
-static void aw_set_port_id(int tx_port_id, int rx_port_id) {
-	return;
-}
-#endif
 
 static int aw_adm_param_enable(int port_id, int module_id, int param_id, int enable)
 {
@@ -193,144 +152,7 @@ static int aw_get_msg_num(int dev_ch, int *msg_num)
 	return 0;
 }
 
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-/*****************mtk dsp communication function start**********************/
-static int aw_mtk_write_data_to_dsp(int param_id, void *data, int size)
-{
-	int ret;
-	int32_t *dsp_data = NULL;
-	aw_dsp_msg_t *hdr = NULL;
-
-	dsp_data = kzalloc(sizeof(aw_dsp_msg_t) + size, GFP_KERNEL);
-	if (!dsp_data) {
-		pr_err("%s: kzalloc dsp_msg error\n", __func__);
-		return -ENOMEM;
-	}
-
-	hdr = (aw_dsp_msg_t *)dsp_data;
-	hdr->type = AW_DSP_MSG_TYPE_DATA;
-	hdr->opcode_id = param_id;
-	hdr->version = AW_DSP_MSG_HDR_VER;
-
-	memcpy(((char *)dsp_data) + sizeof(aw_dsp_msg_t),
-		data, size);
-
-	ret = mtk_spk_send_ipi_buf_to_dsp(dsp_data,
-				sizeof(aw_dsp_msg_t) + size);
-	if (ret < 0) {
-		pr_err("%s:write data failed\n", __func__);
-		kfree(dsp_data);
-		dsp_data = NULL;
-		return ret;
-	}
-
-	kfree(dsp_data);
-	dsp_data = NULL;
-	return 0;
-}
-
-static int aw_mtk_read_data_from_dsp(int param_id, void *data, int size)
-{
-	int ret;
-	aw_dsp_msg_t hdr;
-
-	hdr.type = AW_DSP_MSG_TYPE_CMD;
-	hdr.opcode_id = param_id;
-	hdr.version = AW_DSP_MSG_HDR_VER;
-
-	mutex_lock(&g_aw_dsp_msg_lock);
-	ret = mtk_spk_send_ipi_buf_to_dsp(&hdr, sizeof(aw_dsp_msg_t));
-	if (ret < 0) {
-		pr_err("%s:send cmd failed\n", __func__);
-		goto dsp_msg_failed;
-	}
-
-	ret = mtk_spk_recv_ipi_buf_from_dsp(data, size, &size);
-	if (ret < 0) {
-		pr_err("%s:get data failed\n", __func__);
-		goto dsp_msg_failed;
-	}
-	mutex_unlock(&g_aw_dsp_msg_lock);
-	return 0;
-
-dsp_msg_failed:
-	mutex_unlock(&g_aw_dsp_msg_lock);
-	return ret;
-}
-
-static int aw_mtk_write_msg_to_dsp(int msg_num, int inline_id,
-				void *data, int size)
-{
-	int ret;
-	int32_t *dsp_msg = NULL;
-	aw_dsp_msg_t *hdr = NULL;
-
-	dsp_msg = kzalloc(sizeof(aw_dsp_msg_t) + size,
-			GFP_KERNEL);
-	if (!dsp_msg) {
-		pr_err("%s: inline_id:0x%x kzalloc dsp_msg error\n",
-			__func__, inline_id);
-		return -ENOMEM;
-	}
-	hdr = (aw_dsp_msg_t *)dsp_msg;
-	hdr->type = AW_DSP_MSG_TYPE_DATA;
-	hdr->opcode_id = inline_id;
-	hdr->version = AW_DSP_MSG_HDR_VER;
-
-	memcpy(((char *)dsp_msg) + sizeof(aw_dsp_msg_t),
-			data, size);
-
-	ret = aw_mtk_write_data_to_dsp(afe_param_msg_id[msg_num], (void *)dsp_msg,
-					sizeof(aw_dsp_msg_t) + size);
-	if (ret < 0) {
-		pr_err("%s:inline_id:0x%x, write data failed\n",
-			__func__, inline_id);
-		kfree(dsp_msg);
-		dsp_msg = NULL;
-		return ret;
-	}
-
-	kfree(dsp_msg);
-	dsp_msg = NULL;
-	return 0;
-}
-
-static int aw_mtk_read_msg_from_dsp(int msg_num, int inline_id,
-					char *data, int size)
-{
-	int ret;
-	aw_dsp_msg_t hdr[2];
-
-	hdr[0].type = AW_DSP_MSG_TYPE_DATA;
-	hdr[0].opcode_id = afe_param_msg_id[msg_num];
-	hdr[0].version = AW_DSP_MSG_HDR_VER;
-	hdr[1].type = AW_DSP_MSG_TYPE_CMD;
-	hdr[1].opcode_id = inline_id;
-	hdr[1].version = AW_DSP_MSG_HDR_VER;
-
-	mutex_lock(&g_aw_dsp_msg_lock);
-	ret = mtk_spk_send_ipi_buf_to_dsp(&hdr, 2 * sizeof(aw_dsp_msg_t));
-	if (ret < 0) {
-		pr_err("%s:send cmd failed\n", __func__);
-		goto dsp_msg_failed;
-	}
-
-	ret = mtk_spk_recv_ipi_buf_from_dsp(data, size, &size);
-	if (ret < 0) {
-		pr_err("%s:get data failed\n", __func__);
-		goto dsp_msg_failed;
-	}
-	mutex_unlock(&g_aw_dsp_msg_lock);
-	return 0;
-
-dsp_msg_failed:
-	mutex_unlock(&g_aw_dsp_msg_lock);
-	return ret;
-}
-
-/*****************mtk dsp communication function end**********************/
-#else
-/*****************qcom dsp communication function start**********************/
+/*****************dsp communication function start**********************/
 static int aw_afe_get_topology(uint32_t param_id)
 {
 	if (param_id == AW_MSG_ID_TX_SET_ENABLE)
@@ -474,81 +296,47 @@ dsp_msg_failed:
 	return ret;
 }
 
-#endif
-
 /******************* afe module communication function ************************/
 static int aw_dsp_set_afe_rx_module_enable(void *buf, int size)
 {
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-	return aw_mtk_write_data_to_dsp(AW_MSG_ID_RX_SET_ENABLE, buf, size);
-#else
 	return aw_send_afe_rx_module_enable(buf, size);
-#endif
 }
 
 static int aw_dsp_set_afe_tx_module_enable(void *buf, int size)
 {
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-	return aw_mtk_write_data_to_dsp(AW_MSG_ID_TX_SET_ENABLE, buf, size);
-#else
 	return aw_send_afe_tx_module_enable(buf, size);
-#endif
 }
 
 static int aw_dsp_get_afe_rx_module_enable(void *buf, int size)
 {
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-	return aw_mtk_read_data_from_dsp(AW_MSG_ID_RX_SET_ENABLE, buf, size);
-#else
 	return aw_qcom_read_data_from_dsp(AW_MSG_ID_RX_SET_ENABLE, buf, size);
-#endif
 }
 
 static int aw_dsp_get_afe_tx_module_enable(void *buf, int size)
 {
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-	return aw_mtk_read_data_from_dsp(AW_MSG_ID_TX_SET_ENABLE, buf, size);
-#else
 	return aw_qcom_read_data_from_dsp(AW_MSG_ID_TX_SET_ENABLE, buf, size);
-#endif
 }
 
 /******************* read/write msg communication function ***********************/
 static int aw_read_msg_from_dsp(int msg_num, uint32_t msg_id, char *data_ptr, unsigned int size)
 {
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-	return aw_mtk_read_msg_from_dsp(msg_num, msg_id, data_ptr, size);
-#else
 	return aw_qcom_read_msg_from_dsp(msg_num, msg_id, data_ptr, size);
-#endif
 }
 
 static int aw_write_msg_to_dsp(int msg_num, uint32_t msg_id, char *data_ptr, unsigned int size)
 {
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-	return aw_mtk_write_msg_to_dsp(msg_num, msg_id, data_ptr, size);
-#else
 	return aw_qcom_write_msg_to_dsp(msg_num, msg_id, data_ptr, size);
-#endif
 }
 
 /******************* read/write data communication function ***********************/
 static int aw_read_data_from_dsp(uint32_t param_id, void *data, int size)
 {
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-	return aw_mtk_read_data_from_dsp(param_id, data, size);
-#else
 	return aw_qcom_read_data_from_dsp(param_id, data, size);
-#endif
 }
 
 static int aw_write_data_to_dsp(uint32_t param_id, void *data, int size)
 {
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-	return aw_mtk_write_data_to_dsp(param_id, data, size);
-#else
 	return aw_qcom_write_data_to_dsp(param_id, data, size);
-#endif
 }
 
 /************************* dsp communication function *****************************/

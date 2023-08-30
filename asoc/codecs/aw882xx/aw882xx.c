@@ -61,7 +61,6 @@ static const char *const aw882xx_spin[] = {"spin_0", "spin_90",
  * aw882xx distinguish between codecs and components by version
  *
  ******************************************************/
-#ifdef AW_KERNEL_VER_OVER_4_19_1
 static struct aw_componet_codec_ops aw_componet_codec_ops = {
 	.kcontrol_codec = snd_soc_kcontrol_component,
 	.codec_get_drvdata = snd_soc_component_get_drvdata,
@@ -69,23 +68,10 @@ static struct aw_componet_codec_ops aw_componet_codec_ops = {
 	.unregister_codec = snd_soc_unregister_component,
 	.register_codec = snd_soc_register_component,
 };
-#else
-static struct aw_componet_codec_ops aw_componet_codec_ops = {
-	.kcontrol_codec = snd_soc_kcontrol_codec,
-	.codec_get_drvdata = snd_soc_codec_get_drvdata,
-	.add_codec_controls = snd_soc_add_codec_controls,
-	.unregister_codec = snd_soc_unregister_codec,
-	.register_codec = snd_soc_register_codec,
-};
-#endif
 
 static aw_snd_soc_codec_t *aw_get_codec(struct snd_soc_dai *dai)
 {
-#ifdef AW_KERNEL_VER_OVER_4_19_1
 	return dai->component;
-#else
-	return dai->codec;
-#endif
 }
 
 
@@ -1245,130 +1231,9 @@ static void aw882xx_add_codec_controls(struct aw882xx *aw882xx)
 				aw882xx_spin_control, ARRAY_SIZE(aw882xx_spin_control));
 }
 
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-static int aw882xx_name_append_suffix(struct aw882xx *aw882xx, const char **name)
-{
-	char buf[50];
-	int i2cbus = aw882xx->i2c->adapter->nr;
-	int i2caddr = aw882xx->i2c->addr;
-
-	snprintf(buf, 50, "%s-%x-%x", *name, i2cbus, i2caddr);
-	(*name) = aw882xx_devm_kstrdup(aw882xx->dev, buf);
-	if (!(*name))
-		return -ENOMEM;
-
-	aw_dev_info(aw882xx->dev, "name is %s", (*name));
-	return 0;
-}
-
-static const struct snd_soc_dapm_widget aw882xx_dapm_widgets[] = {
-	/* playback */
-	SND_SOC_DAPM_AIF_IN("AIF_RX", "Speaker_Playback", 0, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_OUTPUT("audio_out"),
-	/* capture */
-	SND_SOC_DAPM_AIF_OUT("AIF_TX", "Speaker_Capture", 0, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_INPUT("iv_in"),
-};
-
-static const struct snd_soc_dapm_route aw882xx_audio_map[] = {
-	{"audio_out", NULL, "AIF_RX"},
-	{"AIF_TX", NULL, "iv_in"},
-};
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
-static struct snd_soc_dapm_context *snd_soc_codec_get_dapm(struct snd_soc_codec *codec)
-{
-	return &codec->dapm;
-}
-#endif
-#endif
-
-static void aw882xx_add_widgets(struct aw882xx *aw882xx)
-{
-#ifdef AW_MTK_PLATFORM_WITH_DSP
-	int ret;
-	int i = 0;
-	struct snd_soc_dapm_widget *aw_widgets = NULL;
-	struct snd_soc_dapm_route *aw_route = NULL;
-#ifdef AW_KERNEL_VER_OVER_4_19_1
-	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(aw882xx->codec);
-#else
-	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(aw882xx->codec);
-#endif
-
-
-	/*add widgets*/
-	aw_widgets = devm_kzalloc(aw882xx->dev,
-				sizeof(struct snd_soc_dapm_widget) * ARRAY_SIZE(aw882xx_dapm_widgets),
-				GFP_KERNEL);
-	if (!aw_widgets) {
-		aw_dev_err(aw882xx->dev, "alloc widget memory failed!");
-		return;
-	}
-	memcpy(aw_widgets, aw882xx_dapm_widgets,
-			sizeof(struct snd_soc_dapm_widget) * ARRAY_SIZE(aw882xx_dapm_widgets));
-
-	for (i = 0; i < ARRAY_SIZE(aw882xx_dapm_widgets); i++) {
-		if (aw_widgets[i].name) {
-			ret = aw882xx_name_append_suffix(aw882xx, &aw_widgets[i].name);
-			if (ret) {
-				aw_dev_err(aw882xx->dev, "append widget name suffix failed!");
-				return;
-			}
-		}
-
-		if (aw_widgets[i].sname) {
-			ret = aw882xx_name_append_suffix(aw882xx, &aw_widgets[i].sname);
-			if (ret) {
-				aw_dev_err(aw882xx->dev, "append widget sname suffix failed!");
-				return;
-			}
-		}
-	}
-
-	snd_soc_dapm_new_controls(dapm, aw_widgets, ARRAY_SIZE(aw882xx_dapm_widgets));
-
-	/*add route*/
-	aw_route = devm_kzalloc(aw882xx->dev,
-				sizeof(struct snd_soc_dapm_route) * ARRAY_SIZE(aw882xx_audio_map),
-				GFP_KERNEL);
-	if (!aw_route) {
-		aw_dev_err(aw882xx->dev, "alloc route memory failed!");
-		return;
-	}
-	memcpy(aw_route, aw882xx_audio_map,
-		sizeof(struct snd_soc_dapm_route) * ARRAY_SIZE(aw882xx_audio_map));
-
-	for (i = 0; i < ARRAY_SIZE(aw882xx_audio_map); i++) {
-		if (aw_route[i].sink) {
-			ret = aw882xx_name_append_suffix(aw882xx, &aw_route[i].sink);
-			if (ret < 0) {
-				aw_dev_err(aw882xx->dev, "append sink name suffix failed!");
-				return;
-			}
-		}
-
-		if (aw_route[i].source) {
-			ret = aw882xx_name_append_suffix(aw882xx, &aw_route[i].source);
-			if (ret < 0) {
-				aw_dev_err(aw882xx->dev, "append source name suffix failed!");
-				return;
-			}
-		}
-	}
-	snd_soc_dapm_add_routes(dapm, aw_route, ARRAY_SIZE(aw882xx_audio_map));
-#endif
-}
-
 static void aw882xx_load_fw(struct aw882xx *aw882xx)
 {
-#ifdef AW_QCOM_PLATFORM
 	aw882xx_request_firmware(&aw882xx->fw_work.work);
-#else
-	queue_delayed_work(aw882xx->work_queue,
-			&aw882xx->fw_work,
-			msecs_to_jiffies(AW882XX_LOAD_FW_DELAY_TIME));
-#endif
 }
 
 static int aw882xx_codec_probe(aw_snd_soc_codec_t *aw_codec)
@@ -1393,8 +1258,6 @@ static int aw882xx_codec_probe(aw_snd_soc_codec_t *aw_codec)
 	if (aw882xx->index == 0)
 		aw882xx_add_codec_controls(aw882xx);
 
-	aw882xx_add_widgets(aw882xx);
-
 	/*load fw bin*/
 	aw882xx_load_fw(aw882xx);
 
@@ -1404,7 +1267,6 @@ static int aw882xx_codec_probe(aw_snd_soc_codec_t *aw_codec)
 	return 0;
 }
 
-#ifdef AW_KERNEL_VER_OVER_4_19_1
 static void aw882xx_codec_remove(aw_snd_soc_codec_t *aw_codec)
 {
 	struct aw882xx *aw882xx =
@@ -1414,19 +1276,6 @@ static void aw882xx_codec_remove(aw_snd_soc_codec_t *aw_codec)
 	destroy_workqueue(aw882xx->work_queue);
 	aw882xx->work_queue = NULL;
 }
-#else
-static int aw882xx_codec_remove(aw_snd_soc_codec_t *aw_codec)
-{
-	struct aw882xx *aw882xx =
-		aw_componet_codec_ops.codec_get_drvdata(aw_codec);
-
-	aw_dev_info(aw882xx->dev, "enter");
-	aw_dev_deinit(aw882xx->aw_pa);
-	destroy_workqueue(aw882xx->work_queue);
-	aw882xx->work_queue = NULL;
-	return 0;
-}
-#endif
 
 static int aw882xx_dai_drv_append_suffix(struct aw882xx *aw882xx,
 				struct snd_soc_dai_driver *dai_drv,
@@ -1488,18 +1337,10 @@ static struct snd_soc_dai_driver aw882xx_dai[] = {
 	},
 };
 
-
-#ifdef AW_KERNEL_VER_OVER_4_19_1
 static struct snd_soc_component_driver soc_codec_dev_aw882xx = {
 	.probe = aw882xx_codec_probe,
 	.remove = aw882xx_codec_remove,
 };
-#else
-static struct snd_soc_codec_driver soc_codec_dev_aw882xx = {
-	.probe = aw882xx_codec_probe,
-	.remove = aw882xx_codec_remove,
-};
-#endif
 
 int aw_componet_codec_register(struct aw882xx *aw882xx)
 {
