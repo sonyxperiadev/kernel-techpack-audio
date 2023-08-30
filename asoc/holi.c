@@ -5538,6 +5538,32 @@ static struct snd_soc_dai_link msm_common_be_dai_links[] = {
 		.ignore_suspend = 1,
 		SND_SOC_DAILINK_REG(quat_tdm_tx_0),
 	},
+#if IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
+	{
+		.name = "Secondary MI2S RX_Hostless",
+		.stream_name = "Secondary MI2S_RX Hostless Playback",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		SND_SOC_DAILINK_REG(sec_mi2s_rx_hostless),
+	},
+	{
+		.name = "Secondary MI2S TX_Hostless",
+		.stream_name = "Secondary MI2S_TX Hostless Capture",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		SND_SOC_DAILINK_REG(sec_mi2s_tx_hostless),
+	},
+#endif
 };
 
 static struct snd_soc_dai_link msm_wcn_btfm_be_dai_links[] = {

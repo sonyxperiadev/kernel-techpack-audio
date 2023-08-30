@@ -33063,6 +33063,12 @@ static const char * const mi2s_rx_vi_fb_tx_mux_text[] = {
 	"ZERO", "SENARY_TX"
 };
 
+#if  IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
+static const char * const sec_mi2s_rx_vi_fb_tx_mux_text[] = {
+	"ZERO", "SEC_MI2S_TX"
+};
+#endif
+
 static const char * const int4_mi2s_rx_vi_fb_tx_mono_mux_text[] = {
 	"ZERO", "INT5_MI2S_TX"
 };
@@ -33099,6 +33105,12 @@ static const int wsa_rx_0_vi_fb_tx_rch_value[] = {
 static const int mi2s_rx_vi_fb_tx_value[] = {
 	MSM_BACKEND_DAI_MAX, MSM_BACKEND_DAI_SENARY_MI2S_TX
 };
+
+#if IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
+static const int sec_mi2s_rx_vi_fb_tx_value[] = {
+	MSM_BACKEND_DAI_MAX, MSM_BACKEND_DAI_SECONDARY_MI2S_TX
+};
+#endif
 
 static const int int4_mi2s_rx_vi_fb_tx_mono_ch_value[] = {
 	MSM_BACKEND_DAI_MAX, MSM_BACKEND_DAI_INT5_MI2S_TX
@@ -33142,6 +33154,13 @@ static const struct soc_enum mi2s_rx_vi_fb_mux_enum =
 	SOC_VALUE_ENUM_DOUBLE(0, MSM_BACKEND_DAI_PRI_MI2S_RX, 0, 0,
 	ARRAY_SIZE(mi2s_rx_vi_fb_tx_mux_text),
 	mi2s_rx_vi_fb_tx_mux_text, mi2s_rx_vi_fb_tx_value);
+
+#if IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
+static const struct soc_enum sec_mi2s_rx_vi_fb_mux_enum =
+	SOC_VALUE_ENUM_DOUBLE(0, MSM_BACKEND_DAI_SECONDARY_MI2S_RX, 0, 0,
+	ARRAY_SIZE(sec_mi2s_rx_vi_fb_tx_mux_text),
+	sec_mi2s_rx_vi_fb_tx_mux_text, sec_mi2s_rx_vi_fb_tx_value);
+#endif
 
 static const struct soc_enum int4_mi2s_rx_vi_fb_mono_ch_mux_enum =
 	SOC_VALUE_ENUM_DOUBLE(0, MSM_BACKEND_DAI_INT4_MI2S_RX, 0, 0,
@@ -33189,6 +33208,13 @@ static const struct snd_kcontrol_new mi2s_rx_vi_fb_mux =
 	SOC_DAPM_ENUM_EXT("PRI_MI2S_RX_VI_FB_MUX",
 	mi2s_rx_vi_fb_mux_enum, spkr_prot_get_vi_lch_port,
 	spkr_prot_put_vi_lch_port);
+
+#if IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
+static const struct snd_kcontrol_new sec_mi2s_rx_vi_fb_mux =
+	SOC_DAPM_ENUM_EXT("SEC_MI2S_RX_VI_FB_MUX",
+	sec_mi2s_rx_vi_fb_mux_enum, spkr_prot_get_vi_lch_port,
+	spkr_prot_put_vi_lch_port);
+#endif
 
 static const struct snd_kcontrol_new int4_mi2s_rx_vi_fb_mono_ch_mux =
 	SOC_DAPM_ENUM_EXT("INT4_MI2S_RX_VI_FB_MONO_CH_MUX",
@@ -34191,6 +34217,10 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets_mi2s[] = {
 	ARRAY_SIZE(int4_mi2s_rx_port_mixer_controls)),
 	SND_SOC_DAPM_MUX("PRI_MI2S_RX_VI_FB_MUX", SND_SOC_NOPM, 0, 0,
 				&mi2s_rx_vi_fb_mux),
+#if IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
+	SND_SOC_DAPM_MUX("SEC_MI2S_RX_VI_FB_MUX", SND_SOC_NOPM, 0, 0,
+	&sec_mi2s_rx_vi_fb_mux),
+#endif
 	SND_SOC_DAPM_MUX("INT4_MI2S_RX_VI_FB_MONO_CH_MUX", SND_SOC_NOPM, 0, 0,
 				&int4_mi2s_rx_vi_fb_mono_ch_mux),
 	SND_SOC_DAPM_MUX("INT4_MI2S_RX_VI_FB_STEREO_CH_MUX", SND_SOC_NOPM, 0, 0,
@@ -41861,6 +41891,10 @@ static const struct snd_soc_dapm_route intercon_mi2s[] = {
 	{"SENARY_MI2S_TX", NULL, "BE_IN"},
 
 	{"PRI_MI2S_RX_VI_FB_MUX", "SENARY_TX", "SENARY_TX"},
+#if IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
+	{"SEC_MI2S_RX_VI_FB_MUX", "SEC_MI2S_TX", "SEC_MI2S_TX"},
+	{"SEC_MI2S_RX", NULL, "SEC_MI2S_RX_VI_FB_MUX"},
+#endif
 	{"INT4_MI2S_RX_VI_FB_MONO_CH_MUX", "INT5_MI2S_TX", "INT5_MI2S_TX"},
 	{"INT4_MI2S_RX_VI_FB_STEREO_CH_MUX", "INT5_MI2S_TX", "INT5_MI2S_TX"},
 	{"PRI_MI2S_RX", NULL, "PRI_MI2S_RX_VI_FB_MUX"},
