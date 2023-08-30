@@ -4759,7 +4759,11 @@ static void *def_wcd_mbhc_cal(void)
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
 	btn_high[0] = 75;
+#if defined(CONFIG_ARCH_SONY_MURRAY)
+	btn_high[1] = 120;
+#else
 	btn_high[1] = 150;
+#endif
 	btn_high[2] = 237;
 	btn_high[3] = 500;
 	btn_high[4] = 500;
