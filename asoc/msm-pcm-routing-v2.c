@@ -560,7 +560,11 @@ static void msm_pcm_routng_cfg_matrix_map_pp(struct route_payload payload,
 	int itr = 0, rc = 0;
 
 	if ((path_type == ADM_PATH_PLAYBACK) &&
+#if defined(CONFIG_ARCH_SONY_MURRAY)
+	    ((perf_mode == LEGACY_PCM_MODE) || (perf_mode == LOW_LATENCY_PCM_MODE)) &&
+#else
 	    (perf_mode == LEGACY_PCM_MODE) &&
+#endif
 	    is_custom_stereo_on) {
 		for (itr = 0; itr < payload.num_copps; itr++) {
 			if ((payload.port_id[itr] != SLIMBUS_0_RX) &&
@@ -41705,7 +41709,11 @@ static const struct snd_soc_dapm_route intercon_mi2s[] = {
 	{"INT4_MI2S_RX", NULL, "INT4_MI2S_RX_DL_HL"},
 	{"PRI_MI2S_RX_DL_HL", "Switch", "PRI_MI2S_DL_HL"},
 	{"PRI_MI2S_RX", NULL, "PRI_MI2S_RX_DL_HL"},
+#if defined(CONFIG_ARCH_SONY_MURRAY)
+	{"SEC_MI2S_RX_DL_HL", "Switch", "CDC_DMA_DL_HL"},
+#else
 	{"SEC_MI2S_RX_DL_HL", "Switch", "SEC_MI2S_DL_HL"},
+#endif
 	{"SEC_MI2S_RX", NULL, "SEC_MI2S_RX_DL_HL"},
 	{"TERT_MI2S_RX_DL_HL", "Switch", "TERT_MI2S_DL_HL"},
 	{"TERT_MI2S_RX", NULL, "TERT_MI2S_RX_DL_HL"},

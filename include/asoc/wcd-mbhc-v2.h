@@ -140,11 +140,16 @@ do {                                                    \
 #define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
 #define GND_MIC_SWAP_THRESHOLD 4
 #define GND_MIC_USBC_SWAP_THRESHOLD 2
+#if defined(CONFIG_ARCH_SONY_MURRAY)
+#define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 150
+#define FAKE_REM_RETRY_ATTEMPTS 10
+#else
 #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 100
+#define FAKE_REM_RETRY_ATTEMPTS 3
+#endif
 #define HS_VREF_MIN_VAL 1400
 #define FW_READ_ATTEMPTS 15
 #define FW_READ_TIMEOUT 4000000
-#define FAKE_REM_RETRY_ATTEMPTS 3
 #define HPHL_CROSS_CONN_THRESHOLD 100
 #define HPHR_CROSS_CONN_THRESHOLD 100
 
@@ -573,6 +578,9 @@ struct wcd_mbhc {
 	bool skip_imped_detection;
 	bool is_btn_already_regd;
 	bool extn_cable_hph_rem;
+#if defined(CONFIG_ARCH_SONY_MURRAY)
+	bool extn_cable_inserted;
+#endif
 
 	struct snd_soc_component *component;
 	/* Work to perform MBHC Firmware Read */
