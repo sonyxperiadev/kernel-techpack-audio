@@ -55,20 +55,12 @@ static DEFINE_MUTEX(g_cali_lock);
 
 static void aw_fs_read(struct file *file, char *buf, size_t count, loff_t *pos)
 {
-#ifdef AW_KERNEL_VER_OVER_5_4_0
 	kernel_read(file, buf, count, pos);
-#else
-	vfs_read(file, buf, count, pos);
-#endif
 }
 
 static void aw_fs_write(struct file *file, char *buf, size_t count, loff_t *pos)
 {
-#ifdef AW_KERNEL_VER_OVER_5_4_0
 	kernel_write(file, buf, count, pos);
-#else
-	vfs_write(file, buf, count, pos);
-#endif
 }
 
 static int aw_cali_write_cali_re_to_file(int32_t cali_re, int channel)
