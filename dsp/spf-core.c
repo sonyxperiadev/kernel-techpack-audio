@@ -1,5 +1,5 @@
 /* Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -339,7 +339,7 @@ static void spf_core_add_child_devices(struct work_struct *work)
 	int ret;
         pr_err("%s:enumarate machine driver\n", __func__);
 
-	if(spf_core_is_apm_ready(500)) {
+	if (spf_core_is_apm_ready(500)) {
 		dev_err(spf_core_priv->dev, "%s: apm is up\n",
 			__func__);
 	} else {

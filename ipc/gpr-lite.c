@@ -1,6 +1,6 @@
 /* Copyright (c) 2011-2017, 2019-2021 The Linux Foundation. All rights reserved.
  * Copyright (c) 2018, Linaro Limited
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,8 +95,7 @@ int gpr_send_pkt(struct gpr_device *adev, struct gpr_pkt *pkt)
 	uint32_t pkt_size;
 	int ret;
 
-	if (gpr_get_q6_state() == GPR_SUBSYS_DOWN)
-	{
+	if (gpr_get_q6_state() == GPR_SUBSYS_DOWN) {
 		pr_err_ratelimited("%s: q6 state is down\n", __func__, adev);
 		return -EINVAL;
 	}
