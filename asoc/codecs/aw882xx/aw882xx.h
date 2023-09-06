@@ -2,7 +2,7 @@
 #define _AW882XX_H_
 #include <linux/version.h>
 #include <linux/kernel.h>
-#include "aw_device.h"
+#include "aw882xx_device.h"
 
 /*
  * i2c transaction on Linux limited to 64k
@@ -16,7 +16,6 @@
 #define AW_START_RETRIES	(5)
 
 #define AW_PID_2055_VERSION_DIFF_REG	(0x23)
-
 
 #define AW_I2C_RETRIES			5	/* 5 times */
 #define AW_I2C_RETRY_DELAY		5	/* 5 ms */
@@ -79,6 +78,16 @@ enum {
 #define AWRW_DATA_BYTES (2)
 #define AWRW_HDR_LEN (24)
 
+
+enum {
+	KCTL_TYPE_PROFILE = 0,
+	KCTL_TYPE_SWITCH,
+	KCTL_TYPE_MONITOR,
+	KCTL_TYPE_VOLUME,
+	AW_KCTL_NUM,
+
+};
+
 enum {
 	AWRW_FLAG_WRITE = 0,
 	AWRW_FLAG_READ,
@@ -97,6 +106,11 @@ enum {
 enum {
 	AW_BOP_DISABLE = 0,
 	AW_BOP_ENABLE,
+};
+
+enum {
+	AW_RENAME_DISABLE = 0,
+	AW_RENAME_ENABLE,
 };
 
 enum {
@@ -124,11 +138,12 @@ struct aw882xx {
 	int pstream;
 	int cstream;
 
-	unsigned char index;
 	unsigned char phase_sync;	/* phase sync */
 	unsigned char dc_flag;
 	unsigned char dbg_en_prof;	/* debug enable/disable profile function */
 	unsigned char allow_pw;		/* allow power */
+	uint32_t rename_flag;
+
 	int reset_gpio;
 	int irq_gpio;
 	unsigned char fw_status;
@@ -161,7 +176,7 @@ int aw882xx_i2c_read(struct aw882xx *aw882xx,
 	unsigned char reg_addr, unsigned int *reg_data);
 int aw882xx_i2c_write_bits(struct aw882xx *aw882xx,
 	unsigned char reg_addr, unsigned int mask, unsigned int reg_data);
-int aw882xx_init(struct aw882xx *aw882xx, int index);
+int aw882xx_init(struct aw882xx *aw882xx);
 int aw882xx_hw_reset(struct aw882xx *aw882xx);
 
 
