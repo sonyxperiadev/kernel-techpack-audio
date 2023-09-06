@@ -33067,7 +33067,7 @@ static const char * const mi2s_rx_vi_fb_tx_mux_text[] = {
 	"ZERO", "SENARY_TX"
 };
 
-#if  IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
+#if IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
 static const char * const sec_mi2s_rx_vi_fb_tx_mux_text[] = {
 	"ZERO", "SEC_MI2S_TX"
 };
@@ -34223,7 +34223,7 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets_mi2s[] = {
 				&mi2s_rx_vi_fb_mux),
 #if IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
 	SND_SOC_DAPM_MUX("SEC_MI2S_RX_VI_FB_MUX", SND_SOC_NOPM, 0, 0,
-	&sec_mi2s_rx_vi_fb_mux),
+				&sec_mi2s_rx_vi_fb_mux),
 #endif
 	SND_SOC_DAPM_MUX("INT4_MI2S_RX_VI_FB_MONO_CH_MUX", SND_SOC_NOPM, 0, 0,
 				&int4_mi2s_rx_vi_fb_mono_ch_mux),

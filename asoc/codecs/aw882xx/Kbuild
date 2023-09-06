@@ -39,7 +39,7 @@ endif
 # As per target team, build is done as follows:
 # Defconfig : build with default flags
 # Slub      : defconfig  + CONFIG_SLUB_DEBUG := y +
-#	      CONFIG_SLUB_DEBUG_ON := y + CONFIG_PAGE_POISONING := y
+#             CONFIG_SLUB_DEBUG_ON := y + CONFIG_PAGE_POISONING := y
 # Perf      : Using appropriate msmXXXX-perf_defconfig
 #
 # Shipment builds (user variants) should not have any debug feature
@@ -65,13 +65,13 @@ COMMON_INC :=	-I$(AUDIO_ROOT)/$(COMMON_DIR)
 # for AW882XX Codec
 ifdef CONFIG_SND_SMARTPA_AW882XX
 	AW882XX_OBJS += aw882xx.o
-	AW882XX_OBJS += aw_monitor.o
-	AW882XX_OBJS += aw_init.o
-	AW882XX_OBJS += aw_dsp.o
-	AW882XX_OBJS += aw_device.o
-	AW882XX_OBJS += aw_calib.o
-	AW882XX_OBJS += aw_bin_parse.o
-	AW882XX_OBJS += aw_spin.o
+	AW882XX_OBJS += aw882xx_monitor.o
+	AW882XX_OBJS += aw882xx_init.o
+	AW882XX_OBJS += aw882xx_dsp.o
+	AW882XX_OBJS += aw882xx_device.o
+	AW882XX_OBJS += aw882xx_calib.o
+	AW882XX_OBJS += aw882xx_bin_parse.o
+	AW882XX_OBJS += aw882xx_spin.o
 endif
 
 LINUX_INC +=	-Iinclude/linux

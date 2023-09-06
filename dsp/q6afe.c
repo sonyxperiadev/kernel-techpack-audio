@@ -37,7 +37,6 @@
 #define AFE_PARAM_ID_AWDSP_RX_SET_ENABLE	(0x10013D11)
 #define AFE_PARAM_ID_AWDSP_TX_SET_ENABLE	(0x10013D13)
 #define AFE_PARAM_ID_AWDSP_RX_PARAMS            (0x10013D12)
-#endif /* CONFIG_SND_SMARTPA_AW882XX */
 
 static int g_aw_tx_port_id = 0;
 static int g_aw_rx_port_id = 0;
@@ -48,6 +47,9 @@ void aw_set_port_id(int tx_port_id, int rx_port_id)
     g_aw_rx_port_id = rx_port_id;
 }
 EXPORT_SYMBOL(aw_set_port_id);
+
+void aw_cal_unmap_memory(void);
+#endif /* CONFIG_SND_SMARTPA_AW882XX */
 
 /* Paired Rx Structure Info */
 static struct afe_tdm_intf_paired_rx_cfg afe_tdm_paired_rx_cfg[AFE_TDM_INTERFACE_MAX] = {
@@ -987,6 +989,10 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		return -EINVAL;
 	}
 	if (data->opcode == RESET_EVENTS) {
+#if IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
+		aw_cal_unmap_memory();
+#endif /* CONFIG_SND_SMARTPA_AW882XX */
+
 		pr_debug("%s: reset event = %d %d apr[%pK]\n",
 			__func__,
 			data->reset_event, data->reset_proc, this_afe.apr);
@@ -12185,10 +12191,6 @@ int __init afe_init(void)
 
 void afe_exit(void)
 {
-#if IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
-	aw_cal_unmap_memory();
-#endif /* CONFIG_SND_SMARTPA_AW882XX */
-
 	if (this_afe.apr) {
 		apr_reset(this_afe.apr);
 		atomic_set(&this_afe.state, 0);
@@ -12197,6 +12199,10 @@ void afe_exit(void)
 	}
 
 	q6core_destroy_uevent_data(this_afe.uevent_data);
+
+#if IS_ENABLED(CONFIG_SND_SMARTPA_AW882XX)
+	aw_cal_unmap_memory();
+#endif /* CONFIG_SND_SMARTPA_AW882XX */
 
 	afe_delete_cal_data();
 
