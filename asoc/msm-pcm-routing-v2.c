@@ -41709,7 +41709,7 @@ static const struct snd_soc_dapm_route intercon_mi2s[] = {
 	{"INT4_MI2S_RX", NULL, "INT4_MI2S_RX_DL_HL"},
 	{"PRI_MI2S_RX_DL_HL", "Switch", "PRI_MI2S_DL_HL"},
 	{"PRI_MI2S_RX", NULL, "PRI_MI2S_RX_DL_HL"},
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 	{"SEC_MI2S_RX_DL_HL", "Switch", "CDC_DMA_DL_HL"},
 #else
 	{"SEC_MI2S_RX_DL_HL", "Switch", "SEC_MI2S_DL_HL"},

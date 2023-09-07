@@ -140,8 +140,8 @@ do {                                                    \
 #define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
 #define GND_MIC_SWAP_THRESHOLD 4
 #define GND_MIC_USBC_SWAP_THRESHOLD 2
-#if defined(CONFIG_ARCH_SONY_MURRAY)
-#define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 150
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
+#define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 200
 #define FAKE_REM_RETRY_ATTEMPTS 10
 #else
 #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 100
@@ -578,7 +578,7 @@ struct wcd_mbhc {
 	bool skip_imped_detection;
 	bool is_btn_already_regd;
 	bool extn_cable_hph_rem;
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 	bool extn_cable_inserted;
 #endif
 
