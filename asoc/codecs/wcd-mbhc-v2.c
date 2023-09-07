@@ -30,7 +30,7 @@
 struct mutex hphl_pa_lock;
 struct mutex hphr_pa_lock;
 
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 struct wcd_mbhc *mbhc_local;
 #endif
 
@@ -567,7 +567,7 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 	struct snd_soc_component *component = mbhc->component;
 	bool is_pa_on = false;
 	u8 fsm_en = 0;
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 	bool skip_report = false;
 #endif
 
@@ -610,7 +610,7 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		}
 
 		mbhc->hph_type = WCD_MBHC_HPH_NONE;
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 		mbhc->extn_cable_inserted = false;
 #endif
 		mbhc->zl = mbhc->zr = 0;
@@ -700,7 +700,7 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			mbhc->jiffies_atreport = jiffies;
 		} else if (jack_type == SND_JACK_LINEOUT) {
 			mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 			skip_report = true;
  			pr_debug("%s: extension cable detected\n", __func__);
 #endif
@@ -780,7 +780,7 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		    mbhc->mbhc_cb->mbhc_micb_ramp_control)
 			mbhc->mbhc_cb->mbhc_micb_ramp_control(component, false);
 
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 		if (skip_report) {
 			pr_debug("%s: Skip reporting insertion\n", __func__);
 			goto skip;
@@ -791,7 +791,7 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				    (mbhc->hph_status | SND_JACK_MECHANICAL),
 				    WCD_MBHC_JACK_MASK);
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 skip:
 #endif
 		wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
@@ -1670,7 +1670,7 @@ static int wcd_mbhc_usbc_ana_event_handler(struct notifier_block *nb,
 }
 #endif
 
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 static ssize_t codec_plug_debug_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct wcd_mbhc *mbhc = mbhc_local;
@@ -1888,7 +1888,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_component *component,
 	mbhc->is_hs_recording = false;
 	mbhc->is_extn_cable = false;
 	mbhc->extn_cable_hph_rem = false;
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 	mbhc->extn_cable_inserted = false;
 #endif
 	mbhc->hph_type = WCD_MBHC_HPH_NONE;
@@ -2063,7 +2063,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_component *component,
 		goto err_hphr_ocp_irq;
 	}
 
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 	if (sysfs_create_file(&mbhc->component->dev->kobj, &plug_debug_attribute.attr) < 0) {
 		pr_err("%s: sysfs audio_jack_status create error\n", __func__);
 	} else {
@@ -2128,7 +2128,7 @@ void wcd_mbhc_deinit(struct wcd_mbhc *mbhc)
 		WCD_MBHC_RSC_UNLOCK(mbhc);
 	}
 	mutex_destroy(&mbhc->codec_resource_lock);
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 	sysfs_remove_file(&mbhc->component->dev->kobj, &plug_debug_attribute.attr);
 #endif
 }

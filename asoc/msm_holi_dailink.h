@@ -342,13 +342,19 @@ SND_SOC_DAILINK_DEFS(pri_mi2s_tx,
 SND_SOC_DAILINK_DEFS(sec_mi2s_rx,
 	DAILINK_COMP_ARRAY(COMP_CPU("msm-dai-q6-mi2s.2")),
 	DAILINK_COMP_ARRAY(COMP_CODEC("aw882xx_smartpa.2-0034", "aw882xx-aif-2-34"),
-				COMP_CODEC("aw882xx_smartpa.1-0034", "aw882xx-aif-1-34")),
+#if defined(CONFIG_ARCH_SONY_ZAMBEZI)
+				COMP_CODEC("aw882xx_smartpa.1-0034", "aw882xx-aif-1-34")
+#endif
+			),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("msm-pcm-routing")));
 
 SND_SOC_DAILINK_DEFS(sec_mi2s_tx,
 	DAILINK_COMP_ARRAY(COMP_CPU("msm-dai-q6-mi2s.3")),
 	DAILINK_COMP_ARRAY(COMP_CODEC("aw882xx_smartpa.2-0034", "aw882xx-aif-2-34"),
-				COMP_CODEC("aw882xx_smartpa.1-0034", "aw882xx-aif-1-34")),
+#if defined(CONFIG_ARCH_SONY_ZAMBEZI)
+				COMP_CODEC("aw882xx_smartpa.1-0034", "aw882xx-aif-1-34")
+#endif
+			),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("msm-pcm-routing")));
 #else
 SND_SOC_DAILINK_DEFS(sec_mi2s_rx,

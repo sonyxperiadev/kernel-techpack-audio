@@ -644,7 +644,7 @@ static int wcd_mbhc_get_plug_from_adc(struct wcd_mbhc *mbhc, int adc_result)
 	hph_thr = wcd_mbhc_adc_get_hph_thres(mbhc);
 
 	if (adc_result < hph_thr) {
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 		if (mbhc->force_linein)
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
 		else
@@ -683,7 +683,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	mbhc = container_of(work, struct wcd_mbhc, correct_plug_swch);
 	component = mbhc->component;
 
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 	/* Wait for debounce time 200ms for extension cable */
 	if (mbhc->extn_cable_inserted)
 		msleep(200);
@@ -906,7 +906,7 @@ correct_plug_type:
 			goto enable_supply;
 		}
 	}
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 	if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH &&
 	    !mbhc->force_linein) {
 #else
@@ -1169,7 +1169,7 @@ static irqreturn_t wcd_mbhc_adc_hs_ins_irq(int irq, void *data)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, 0);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_ISRC_EN, 0);
 	mbhc->is_extn_cable = true;
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
 	mbhc->extn_cable_inserted = true;
 #endif
 	mbhc->btn_press_intr = false;
