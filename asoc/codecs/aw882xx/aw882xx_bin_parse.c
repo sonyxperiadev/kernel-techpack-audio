@@ -31,6 +31,8 @@
 #include <linux/cdev.h>
 #include <linux/list.h>
 #include <linux/string.h>
+#include <sound/soc.h>
+#include "aw882xx.h"
 #include "aw882xx_bin_parse.h"
 #include "aw882xx_device.h"
 #include "aw882xx_data_type.h"
@@ -804,13 +806,16 @@ static int aw_dev_parse_dev_type(struct aw_device *aw_dev,
 	int sec_num = 0;
 	struct aw_cfg_dde *cfg_dde =
 		(struct aw_cfg_dde *)((char *)prof_hdr + prof_hdr->a_hdr_offset);
+	struct aw882xx *aw882xx = dev_get_drvdata(aw_dev->dev);
 
 	aw_dev_info(aw_dev->dev, "enter");
 
 	for (i = 0; i < prof_hdr->a_ddt_num; i++) {
-		if ((aw_dev->i2c->adapter->nr == cfg_dde[i].dev_bus) &&
-			(aw_dev->i2c->addr == cfg_dde[i].dev_addr) &&
-			(cfg_dde[i].type == AW_DEV_TYPE_ID)) {
+		if (((aw_dev->i2c->adapter->nr == cfg_dde[i].dev_bus) &&
+			 (aw_dev->i2c->addr == cfg_dde[i].dev_addr) &&
+			 (cfg_dde[i].type == AW_DEV_TYPE_ID)) ||
+			((aw882xx->rename_flag == AW_RENAME_ENABLE) &&
+			 (cfg_dde[i].type == AW_DEV_TYPE_ID))) {
 			if (cfg_dde[i].data_type != ACF_SEC_TYPE_MONITOR) {
 				ret = aw_dev_parse_data_by_sec_type(aw_dev, prof_hdr, &cfg_dde[i],
 						&all_prof_info->prof_desc[cfg_dde[i].dev_profile]);
