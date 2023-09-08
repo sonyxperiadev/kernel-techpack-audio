@@ -1115,10 +1115,14 @@ SND_SOC_DAILINK_DEFS(tx_dma_tx4,
 	DAILINK_COMP_ARRAY(COMP_CODEC("bolero_codec", "tx_macro_tx2"),
 			   COMP_CODEC("wcd938x_codec", "wcd938x_cdc"),
 			   COMP_CODEC("wcd937x_codec", "wcd937x_cdc"),
+#ifdef ENABLE_SW_DMICS
 			   COMP_CODEC("swr-dmic.01", "swr_dmic_tx0"),
 			   COMP_CODEC("swr-dmic.02", "swr_dmic_tx1"),
 			   COMP_CODEC("swr-dmic.03", "swr_dmic_tx2"),
 			   COMP_CODEC("swr-dmic.04", "swr_dmic_tx3")),
+#else
+			   COMP_CODEC("msm-stub-codec.1", "msm-stub-rx")),
+#endif
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("msm-pcm-routing")));
 
 SND_SOC_DAILINK_DEFS(va_dma_tx0,
