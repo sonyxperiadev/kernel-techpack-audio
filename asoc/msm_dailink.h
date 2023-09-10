@@ -917,7 +917,11 @@ SND_SOC_DAILINK_DEFS(display_port1,
 
 SND_SOC_DAILINK_DEFS(pri_mi2s_rx,
 	DAILINK_COMP_ARRAY(COMP_CPU("msm-dai-q6-mi2s.0")),
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+	DAILINK_COMP_ARRAY(COMP_CODEC("cs40l2x-codec", "cs40l2x-pcm")),
+#else
 	DAILINK_COMP_ARRAY(COMP_CODEC("msm-stub-codec.1", "msm-stub-rx")),
+#endif
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("msm-pcm-routing")));
 
 SND_SOC_DAILINK_DEFS(pri_mi2s_tx,
@@ -967,12 +971,22 @@ SND_SOC_DAILINK_DEFS(quin_mi2s_tx,
 
 SND_SOC_DAILINK_DEFS(sen_mi2s_rx,
 	DAILINK_COMP_ARRAY(COMP_CPU("msm-dai-q6-mi2s.10")),
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+	DAILINK_COMP_ARRAY(COMP_CODEC("cs35l41.3-0040", "cs35l41-pcm"),
+				COMP_CODEC("cs35l41.3-0041", "cs35l41-pcm")),
+#else
 	DAILINK_COMP_ARRAY(COMP_CODEC("msm-stub-codec.1", "msm-stub-rx")),
+#endif
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("msm-pcm-routing")));
 
 SND_SOC_DAILINK_DEFS(sen_mi2s_tx,
 	DAILINK_COMP_ARRAY(COMP_CPU("msm-dai-q6-mi2s.11")),
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+	DAILINK_COMP_ARRAY(COMP_CODEC("cs35l41.3-0040", "cs35l41-pcm"),
+				COMP_CODEC("cs35l41.3-0041", "cs35l41-pcm")),
+#else
 	DAILINK_COMP_ARRAY(COMP_CODEC("msm-stub-codec.1", "msm-stub-tx")),
+#endif
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("msm-pcm-routing")));
 
 SND_SOC_DAILINK_DEFS(auxpcm_rx,
@@ -1100,7 +1114,11 @@ SND_SOC_DAILINK_DEFS(rx_dma_rx5,
 SND_SOC_DAILINK_DEFS(rx_dma_rx6,
 	DAILINK_COMP_ARRAY(COMP_CPU("msm-dai-cdc-dma-dev.45116")),
 	DAILINK_COMP_ARRAY(COMP_CODEC("bolero_codec", "rx_macro_rx6"),
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+			   COMP_CODEC("msm-stub-codec.1", "msm-stub-rx")),
+#else
 			   COMP_CODEC("swr-haptics", "swr_haptics")),
+#endif
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("msm-pcm-routing")));
 
 SND_SOC_DAILINK_DEFS(tx_dma_tx3,

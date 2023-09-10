@@ -5383,6 +5383,11 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	int sample_rate = 0;
 	u32 bit_per_sample = 0;
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+	struct snd_soc_component *component = NULL;
+	struct snd_soc_dai **codec_dais = rtd->codec_dais;
+	int i;
+#endif
 
 	dev_dbg(rtd->card->dev,
 		"%s: substream = %s  stream = %d, dai name %s, dai ID %d\n",
@@ -5466,6 +5471,19 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			atomic_inc(&(pdata->mi2s_gpio_ref_count[index]));
 		}
 	}
+
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+		for (i = 0; i < rtd->num_codecs; i++) {
+			component = codec_dais[i]->component;
+			snd_soc_dai_set_fmt(codec_dais[i],
+					SND_SOC_DAIFMT_CBS_CFS |
+					SND_SOC_DAIFMT_I2S);
+			snd_soc_component_set_sysclk(component, 0, 0,
+					mi2s_clk[index].clk_freq_in_hz,
+					SND_SOC_CLOCK_IN);
+		}
+#endif
+
 	if (!mi2s_intf_conf[index].msm_is_mi2s_master)
 		fmt = SND_SOC_DAIFMT_CBM_CFM;
 	ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
@@ -5789,7 +5807,11 @@ static void *def_wcd_mbhc_cal(void)
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
 	btn_high[0] = 75;
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+	btn_high[1] = 137;
+#else
 	btn_high[1] = 150;
+#endif
 	btn_high[2] = 237;
 	btn_high[3] = 500;
 	btn_high[4] = 500;
@@ -6776,6 +6798,38 @@ static struct snd_soc_dai_link ext_disp_be_dai_link[] = {
 };
 #endif
 
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+static int cs35l41_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_dai **codec_dais = rtd->codec_dais;
+	struct snd_soc_dapm_context *dapm;
+	int i;
+
+	for (i = 0; i < rtd->num_codecs; i++) {
+		dapm = snd_soc_component_get_dapm(codec_dais[i]->component);
+		if (dapm->component->name_prefix == NULL) {
+			pr_debug("%s: name_prefix=NULL\n", __func__);
+			snd_soc_dapm_ignore_suspend(dapm, "AMP Playback");
+			snd_soc_dapm_ignore_suspend(dapm, "AMP Capture");
+			snd_soc_dapm_ignore_suspend(dapm, "SPK");
+		} else if (!strcmp(dapm->component->name_prefix, "L")) {
+			pr_debug("%s: name_prefix=L\n", __func__);
+			snd_soc_dapm_ignore_suspend(dapm, "L AMP Playback");
+			snd_soc_dapm_ignore_suspend(dapm, "L AMP Capture");
+			snd_soc_dapm_ignore_suspend(dapm, "L SPK");
+		} else if (!strcmp(dapm->component->name_prefix, "R")) {
+			pr_debug("%s: name_prefix=R\n", __func__);
+			snd_soc_dapm_ignore_suspend(dapm, "R AMP Playback");
+			snd_soc_dapm_ignore_suspend(dapm, "R AMP Capture");
+			snd_soc_dapm_ignore_suspend(dapm, "R SPK");
+		}
+	}
+	snd_soc_dapm_sync(dapm);
+
+	return 0;
+}
+#endif
+
 static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 	{
 		.name = LPASS_BE_PRI_MI2S_RX,
@@ -6903,6 +6957,9 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
 		SND_SOC_DAILINK_REG(sen_mi2s_rx),
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+		.init = &cs35l41_init,
+#endif
 	},
 	{
 		.name = LPASS_BE_SENARY_MI2S_TX,
@@ -8231,6 +8288,13 @@ static void parse_cps_configuration(struct platform_device *pdev,
 	}
 }
 
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+static struct snd_soc_codec_conf msm_codec_conf[] = {
+	{ "cs35l41.3-0040", NULL, "L" },
+	{ "cs35l41.3-0041", NULL, "R" },
+};
+#endif
+
 static int msm_asoc_machine_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = NULL;
@@ -8289,15 +8353,20 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-        /* Get maximum WSA device count for this platform */
-        ret = of_property_read_u32(pdev->dev.of_node,
-                                   "qcom,wsa-max-devs", &pdata->wsa_max_devs);
-        if (ret) {
-                dev_info(&pdev->dev,
-                         "%s: wsa-max-devs property missing in DT %s, ret = %d\n",
-                         __func__, pdev->dev.of_node->full_name, ret);
-                pdata->wsa_max_devs = 0;
-        }
+	/* Get maximum WSA device count for this platform */
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,wsa-max-devs", &pdata->wsa_max_devs);
+	if (ret) {
+		dev_info(&pdev->dev,
+			"%s: wsa-max-devs property missing in DT %s, ret = %d\n",
+			__func__, pdev->dev.of_node->full_name, ret);
+		pdata->wsa_max_devs = 0;
+	}
+
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+	card->codec_conf = msm_codec_conf;
+	card->num_configs = sizeof(msm_codec_conf) / sizeof(msm_codec_conf[0]);
+#endif
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret == -EPROBE_DEFER) {
