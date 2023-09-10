@@ -46,6 +46,11 @@
 #define SESSION_TYPE_RX 0
 #define COPP_VOL_DEFAULT 0x2000
 
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+#define APPTYPE_GENERAL_PLAYBACK 0x00011130
+#define APPTYPE_SYSTEM_SOUNDS 0x00011131
+#endif
+
 /* ENUM for adm_status */
 enum adm_cal_status {
 	ADM_STATUS_CALIBRATION_REQUIRED = 0,
@@ -3250,6 +3255,18 @@ int adm_open_v2(int port_id, int path, int rate, int channel_mode, int topology,
 	pr_debug("%s:port %#x path:%d rate:%d mode:%d perf_mode:%d,topo_id %d\n",
 		 __func__, port_id, path, rate, channel_mode, perf_mode,
 		 topology);
+
+
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+	if (((topology == ADM_CMD_COPP_OPENOPOLOGY_ID_SPEAKER_RX_MCH_IIR_COPP_MBDRC_V3) ||
+		 (topology == ADM_CMD_COPP_OPENOPOLOGY_ID_SPEAKER_RX_MCH_FIR_IIR_COPP_MBDRC_V3) ||
+		 (topology == ADM_CMD_COPP_OPENOPOLOGY_ID_AUDIO_RX_SONY_SPEAKER)) &&
+		((app_type == APPTYPE_GENERAL_PLAYBACK) || (app_type == APPTYPE_SYSTEM_SOUNDS))) {
+		bit_width = 24;
+		pr_debug("%s: Force open adm in 24-bit for SOMC Speaker topology 0x%x\n",
+			__func__, topology);
+	}
+#endif
 
 	port_id = q6audio_convert_virtual_to_portid(port_id);
 	port_idx = adm_validate_and_get_port_index(port_id);

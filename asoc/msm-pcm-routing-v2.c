@@ -560,7 +560,7 @@ static void msm_pcm_routng_cfg_matrix_map_pp(struct route_payload payload,
 	int itr = 0, rc = 0;
 
 	if ((path_type == ADM_PATH_PLAYBACK) &&
-#if defined(CONFIG_ARCH_SONY_MURRAY)
+#if defined(CONFIG_ARCH_SONY_SAGAMI) || defined(CONFIG_ARCH_SONY_MURRAY)
 	    ((perf_mode == LEGACY_PCM_MODE) || (perf_mode == LOW_LATENCY_PCM_MODE)) &&
 #else
 	    (perf_mode == LEGACY_PCM_MODE) &&
@@ -2473,6 +2473,9 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 	int ret = 0;
 	uint32_t copp_token = 0;
 	int copp_perf_mode = 0;
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+	bool is_copp_24bit = false;
+#endif
 
 	if (fedai_id >= MSM_FRONTEND_DAI_MM_MAX_ID) {
 		/* bad ID assigned in machine driver */
@@ -2519,6 +2522,11 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 			bits_per_sample = msm_routing_get_bit_width(
 						msm_bedais[i].format);
 
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+			if (bits_per_sample == 24)
+				is_copp_24bit = true;
+#endif
+
 			app_type =
 			fe_dai_app_type_cfg[fedai_id][session_type][i].app_type;
 			if (app_type) {
@@ -2536,6 +2544,12 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 					.copp_token;
 			} else
 				sample_rate = msm_bedais[i].sample_rate;
+
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+			if (path_type == 2)
+				if (is_copp_24bit == true)
+					bits_per_sample = 24;
+#endif
 
 			acdb_dev_id =
 			fe_dai_app_type_cfg[fedai_id][session_type][i]
@@ -2589,6 +2603,13 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 				mutex_unlock(&routing_lock);
 				return -EINVAL;
 			}
+
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+			/* Mute before volume is passed from HAL when voip setup */
+			if (app_type == VOIP_AUDIO_APP_TYPE)
+				ret = adm_set_volume(port_id, copp_idx, 0);
+#endif
+
 			pr_debug("%s: setting idx bit of fe:%d, type: %d, be:%d\n",
 				 __func__, fedai_id, session_type, i);
 			set_bit(copp_idx,
@@ -2748,6 +2769,9 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 	bool is_lsm;
 	uint32_t copp_token = 0;
 	int copp_perf_mode = 0;
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+	bool is_copp_24bit = false;
+#endif
 
 	pr_debug("%s: reg %x val %x set %x\n", __func__, reg, val, set);
 
@@ -2828,6 +2852,11 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			bits_per_sample = msm_routing_get_bit_width(
 						msm_bedais[reg].format);
 
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+			if (bits_per_sample == 24)
+				is_copp_24bit = true;
+#endif
+
 			app_type =
 			fe_dai_app_type_cfg[val][session_type][reg].app_type;
 			if (app_type && is_lsm) {
@@ -2853,6 +2882,12 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 					.copp_token;
 			} else
 				sample_rate = msm_bedais[reg].sample_rate;
+
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+			if (path_type == 2)
+				if (is_copp_24bit == true)
+					bits_per_sample = 24;
+#endif
 
 			topology = msm_routing_get_adm_topology(val,
 								session_type,
@@ -41722,7 +41757,11 @@ static const struct snd_soc_dapm_route intercon_mi2s[] = {
 	{"QUAT_MI2S_RX", NULL, "QUAT_MI2S_RX_DL_HL"},
 	{"QUIN_MI2S_RX_DL_HL", "Switch", "QUIN_MI2S_DL_HL"},
 	{"QUIN_MI2S_RX", NULL, "QUIN_MI2S_RX_DL_HL"},
+#if defined(CONFIG_ARCH_SONY_SAGAMI)
+	{"SEN_MI2S_RX_DL_HL", "Switch", "CDC_DMA_DL_HL"},
+#else
 	{"SEN_MI2S_RX_DL_HL", "Switch", "SEN_MI2S_DL_HL"},
+#endif
 	{"SEN_MI2S_RX", NULL, "SEN_MI2S_RX_DL_HL"},
 	{"MI2S_UL_HL", NULL, "TERT_MI2S_TX"},
 	{"INT3_MI2S_UL_HL", NULL, "INT3_MI2S_TX"},
