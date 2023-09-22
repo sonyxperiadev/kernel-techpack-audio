@@ -174,6 +174,10 @@ bool spf_core_is_apm_ready(int timeout_ms)
 
 	timeout = jiffies + msecs_to_jiffies(timeout_ms);
 	mutex_lock(&core->lock);
+
+	/* sleep for 100ms before querying AVS up */
+	msleep(100);
+
 	for (;;) {
 		if (__spf_core_is_apm_ready(core)) {
 			ret = true;
