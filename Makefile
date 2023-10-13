@@ -78,5 +78,6 @@ ccflags_no-error_misleading_indentation := $(call cc-option,-Wno-error=misleadin
 ccflags_no-error_restrict := $(call cc-option,-Wno-error=restrict)
 ccflags_no-error_array_bounds := $(call cc-option,-Wno-error=array-bounds)
 ccflags_no-error_frame-larger-than := $(call cc-option,-Wno-error=frame-larger-than=)
+ccflags_no-enum-conversion := $(call cc-option,-Wno-enum-conversion)
 
-subdir-ccflags-y := $(ccflags_no-error_array_parameter) $(ccflags_no-error_maybe_uninitialized) $(ccflags_no-error_misleading_indentation) $(ccflags_no-error_restrict) $(ccflags_no-error_array_bounds) $(ccflags_no-error_frame-larger-than)
+subdir-ccflags-y := $(ccflags_no-error_array_parameter) $(ccflags_no-error_maybe_uninitialized) $(ccflags_no-error_misleading_indentation) $(ccflags_no-error_restrict) $(ccflags_no-error_array_bounds) $(ccflags_no-error_frame-larger-than)  $(ccflags_no-enum-conversion)
