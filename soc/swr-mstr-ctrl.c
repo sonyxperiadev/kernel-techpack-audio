@@ -801,7 +801,7 @@ static int swrm_pcm_port_config(struct swr_mstr_ctrl *swrm, u8 port_num,
 				reg_addr = ((dir) ? SWRM_DIN_DP_PCM_PORT_CTRL(port_num) : \
 						SWRM_DOUT_DP_PCM_PORT_CTRL(port_num));
 				reg_val = enable ? 0x3 : 0x0;
-				swr_master_write(swrm, reg_addr, enable);
+				swr_master_write(swrm, reg_addr, reg_val);
 			} else if (stream_type == SWR_PCM) {
 				reg_addr = ((dir) ? SWRM_DIN_DP_PCM_PORT_CTRL(port_num) : \
 						SWRM_DOUT_DP_PCM_PORT_CTRL(port_num));
