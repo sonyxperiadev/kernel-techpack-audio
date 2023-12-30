@@ -172,7 +172,8 @@ SND_SOC_DAILINK_DEFS(rx_dma_rx5,
 SND_SOC_DAILINK_DEFS(rx_dma_rx6,
 	DAILINK_COMP_ARRAY(COMP_CPU("snd-soc-dummy-dai")),
 	DAILINK_COMP_ARRAY(COMP_CODEC("lpass-cdc", "rx_macro_rx6"),
-#if IS_ENABLED(CONFIG_ARCH_SONY_NAGARA)
+#if IS_ENABLED(CONFIG_ARCH_SONY_NAGARA) || \
+	IS_ENABLED(CONFIG_ARCH_SONY_YODO)
 			   COMP_CODEC("msm-stub-codec.1", "msm-stub-rx")),
 #else
 			   COMP_CODEC("swr-haptics", "swr_haptics")),
@@ -193,7 +194,8 @@ SND_SOC_DAILINK_DEFS(tx_dma_tx4,
 			   COMP_CODEC("wcd937x_codec", "wcd937x_cdc"),
 			   COMP_CODEC("wcd938x_codec", "wcd938x_cdc"),
 			   COMP_CODEC("wcd939x_codec", "wcd939x_cdc"),
-#if IS_ENABLED(CONFIG_ARCH_SONY_NAGARA)
+#if IS_ENABLED(CONFIG_ARCH_SONY_NAGARA) || \
+	IS_ENABLED(CONFIG_ARCH_SONY_YODO)
 			   COMP_CODEC("msm-stub-codec.1", "msm-stub-rx")),
 #else
 			   COMP_CODEC("swr-dmic.01", "swr_dmic_tx0"),
@@ -230,7 +232,8 @@ SND_SOC_DAILINK_DEFS(proxy_rx,
 
 SND_SOC_DAILINK_DEFS(pri_mi2s_rx,
 	DAILINK_COMP_ARRAY(COMP_CPU("snd-soc-dummy-dai")),
-#if IS_ENABLED(CONFIG_ARCH_SONY_NAGARA)
+#if IS_ENABLED(CONFIG_ARCH_SONY_NAGARA) || \
+	IS_ENABLED(CONFIG_ARCH_SONY_YODO)
 	DAILINK_COMP_ARRAY(COMP_CODEC("cs40l2x-codec", "cs40l2x-pcm")),
 #else
 	DAILINK_COMP_ARRAY(COMP_CODEC("msm-stub-codec.1", "msm-stub-rx")),
@@ -287,6 +290,9 @@ SND_SOC_DAILINK_DEFS(sen_mi2s_rx,
 #if IS_ENABLED(CONFIG_ARCH_SONY_NAGARA)
 	DAILINK_COMP_ARRAY(COMP_CODEC("cs35l41_l", "cs35l41-pcm"),
 			   COMP_CODEC("cs35l41_r", "cs35l41-pcm")),
+#elif IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+	DAILINK_COMP_ARRAY(COMP_CODEC("cs35l45_l", "cs35l45"),
+			   COMP_CODEC("cs35l45_r", "cs35l45")),
 #else
 	DAILINK_COMP_ARRAY(COMP_CODEC("msm-stub-codec.1", "msm-stub-rx")),
 #endif
@@ -297,6 +303,9 @@ SND_SOC_DAILINK_DEFS(sen_mi2s_tx,
 #if IS_ENABLED(CONFIG_ARCH_SONY_NAGARA)
 	DAILINK_COMP_ARRAY(COMP_CODEC("cs35l41_l", "cs35l41-pcm"),
 			   COMP_CODEC("cs35l41_r", "cs35l41-pcm")),
+#elif IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+	DAILINK_COMP_ARRAY(COMP_CODEC("cs35l45_l", "cs35l45"),
+			   COMP_CODEC("cs35l45_r", "cs35l45")),
 #else
 	DAILINK_COMP_ARRAY(COMP_CODEC("msm-stub-codec.1", "msm-stub-tx")),
 #endif

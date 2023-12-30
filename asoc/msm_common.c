@@ -390,6 +390,11 @@ int msm_common_snd_hw_params(struct snd_pcm_substream *substream,
 	struct msm_common_pdata *pdata = msm_common_get_pdata(card);
 	int index = get_mi2s_tdm_auxpcm_intf_index(stream_name);
 	struct clk_cfg intf_clk_cfg;
+#if IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+	struct snd_soc_component *component = NULL;
+	struct snd_soc_dai **dais = rtd->dais;
+	int i;
+#endif
 
 	dev_dbg(rtd->card->dev,
 		"%s: substream = %s  stream = %d\n",
@@ -478,6 +483,17 @@ int msm_common_snd_hw_params(struct snd_pcm_substream *substream,
 						__func__, ret);
 					goto done;
 				}
+#if IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+				for (i = rtd->num_cpus; i < (rtd->num_cpus + rtd->num_codecs); i++) {
+					component = dais[i]->component;
+					snd_soc_dai_set_fmt(dais[i],
+							SND_SOC_DAIFMT_CBS_CFS |
+							SND_SOC_DAIFMT_I2S);
+					snd_soc_component_set_sysclk(component, 0, 0,
+							intf_clk_cfg.clk_freq_in_hz,
+							SND_SOC_CLOCK_IN);
+				}
+#endif
 			} else {
 				pr_err("%s: unsupported stream name: %s\n",
 					__func__, stream_name);
