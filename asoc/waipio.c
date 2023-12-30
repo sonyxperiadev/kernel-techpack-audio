@@ -208,25 +208,15 @@ static void msm_set_upd_config(struct snd_soc_pcm_runtime *rtd)
 	} else {
 		component = snd_soc_rtdcom_lookup(rtd, WCD938X_DRV_NAME);
 		if (!component) {
-			component = snd_soc_rtdcom_lookup(rtd, WCD937X_DRV_NAME);
-			if (!component) {
-				pr_err("%s component is NULL\n", __func__);
-				return;
-			}
+			pr_err("%s component is NULL\n", __func__);
+			return;
 		}
 	}
 
 	if (!strcmp(pdata->upd_config.backend_used, "wsa")) {
 		pdata->get_dev_num = wsa883x_codec_get_dev_num;
-	}
-	else {
-		if(!strncmp(component->driver->name, WCD937X_DRV_NAME,
-				strlen(WCD937X_DRV_NAME))){
-			pdata->get_dev_num = wcd937x_codec_get_dev_num;
-		} else if(!strncmp(component->driver->name, WCD938X_DRV_NAME,
-				strlen(WCD938X_DRV_NAME))){
-			pdata->get_dev_num = wcd938x_codec_get_dev_num;
-		}
+	} else {
+		pdata->get_dev_num = wcd938x_codec_get_dev_num;
 	}
 
 	if (!pdata->get_dev_num) {
