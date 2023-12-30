@@ -478,7 +478,11 @@ static void *def_wcd_mbhc_cal(void)
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
 	btn_high[0] = 75;
+#if IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+	btn_high[1] = 137;
+#else
 	btn_high[1] = 150;
+#endif
 	btn_high[2] = 237;
 	btn_high[3] = 500;
 	btn_high[4] = 500;
@@ -891,6 +895,45 @@ static struct snd_soc_dai_link msm_va_cdc_dma_be_dai_links[] = {
 	},
 };
 
+#if IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+static int cs35l45_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_dai **dais = rtd->dais;
+	struct snd_soc_dapm_context *dapm;
+	int i;
+
+	for (i = rtd->num_cpus; i < (rtd->num_cpus + rtd->num_codecs); i++) {
+		dapm = snd_soc_component_get_dapm(dais[i]->component);
+
+		if (dapm->component->name_prefix == NULL) {
+			pr_debug("%s: name_prefix=NULL\n", __func__);
+			if (snd_soc_dapm_ignore_suspend(dapm, "Playback") < 0)
+				pr_err("%s: ignore suspend failed : Playback\n", __func__);
+			if (snd_soc_dapm_ignore_suspend(dapm, "Capture") < 0)
+				pr_err("%s: ignore suspend failed : Capture\n", __func__);
+			if (snd_soc_dapm_ignore_suspend(dapm, "SPK") < 0)
+				pr_err("%s: ignore suspend failed : SPK\n", __func__);
+			if (snd_soc_dapm_ignore_suspend(dapm, "AP") < 0)
+				pr_err("%s: ignore suspend failed : AP\n", __func__);
+		} else if (!strcmp(dapm->component->name_prefix, "L") ||
+		           !strcmp(dapm->component->name_prefix, "R")) {
+			pr_debug("%s: name_prefix=%s\n", __func__, dapm->component->name_prefix);
+			if (snd_soc_dapm_ignore_suspend(dapm, "Playback") < 0)
+				pr_err("%s: ignore suspend failed : %s Playback\n", __func__, dapm->component->name_prefix);
+			if (snd_soc_dapm_ignore_suspend(dapm, "Capture") < 0)
+				pr_err("%s: ignore suspend failed : %s Capture\n", __func__, dapm->component->name_prefix);
+			if (snd_soc_dapm_ignore_suspend(dapm, "SPK") < 0)
+				pr_err("%s: ignore suspend failed : %s SPK\n", __func__, dapm->component->name_prefix);
+			if (snd_soc_dapm_ignore_suspend(dapm, "AP") < 0)
+				pr_err("%s: ignore suspend failed : %s AP\n", __func__, dapm->component->name_prefix);
+		}
+	}
+	snd_soc_dapm_sync(dapm);
+
+	return 0;
+}
+#endif
+
 /*
  * I2S interface pinctrl mapping
  * ------------------------------------
@@ -1018,6 +1061,9 @@ static struct snd_soc_dai_link msm_mi2s_dai_links[] = {
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
 		SND_SOC_DAILINK_REG(sen_mi2s_rx),
+#if IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+		.init = &cs35l45_init,
+#endif
 	},
 	{
 		.name = LPASS_BE_SEN_MI2S_TX,
@@ -1214,6 +1260,22 @@ static struct snd_soc_dai_link msm_kalama_dai_links[
 			ARRAY_SIZE(msm_mi2s_dai_links) +
 			ARRAY_SIZE(msm_tdm_dai_links)];
 
+#if IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+static struct snd_soc_codec_conf msm_codec_conf[] = {
+	{
+		.dlc.name = NULL,
+		.dlc.of_node = NULL,
+		.dlc.dai_name = NULL,
+		.name_prefix = "L",
+	},
+	{
+		.dlc.name = NULL,
+		.dlc.of_node = NULL,
+		.dlc.dai_name = NULL,
+		.name_prefix = "R",
+	},
+};
+#endif
 
 static int msm_populate_dai_link_component_of_node(
 					struct snd_soc_card *card)
@@ -1257,6 +1319,17 @@ static int msm_populate_dai_link_component_of_node(
 					ret = -ENODEV;
 					goto err;
 				}
+
+#if IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+				if (strcmp(dai_link[i].codecs[j].name, "cs35l45_l") == 0) {
+					/*Left speaker*/
+					msm_codec_conf[0].dlc.of_node = np;
+				} else if (strcmp(dai_link[i].codecs[j].name, "cs35l45_r") == 0) {
+					/*Right speaker*/
+					msm_codec_conf[1].dlc.of_node = np;
+				}
+#endif
+
 				dai_link[i].codecs[j].of_node = np;
 				dai_link[i].codecs[j].name = NULL;
 			}
@@ -2145,6 +2218,11 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 
 	/* parse upd configuration */
 	msm_parse_upd_configuration(pdev, pdata);
+
+#if IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+	card->codec_conf = msm_codec_conf;
+	card->num_configs = sizeof(msm_codec_conf) / sizeof(msm_codec_conf[0]);
+#endif
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret == -EPROBE_DEFER) {
