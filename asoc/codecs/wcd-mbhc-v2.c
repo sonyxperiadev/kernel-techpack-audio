@@ -21,9 +21,7 @@
 #if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
 #include <linux/soc/qcom/wcd939x-i2c.h>
 #endif
-#if IS_ENABLED(CONFIG_QCOM_FSA4480_I2C)
 #include <linux/soc/qcom/fsa4480-i2c.h>
-#endif
 #include <linux/usb/typec.h>
 #include <sound/soc.h>
 #include <sound/jack.h>
@@ -965,9 +963,9 @@ static bool wcd_mbhc_moisture_detect(struct wcd_mbhc *mbhc, bool detection_type)
 
 static void wcd_mbhc_set_hsj_connect(struct wcd_mbhc *mbhc, bool connect)
 {
+#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
 	struct snd_soc_component *component = mbhc->component;
 
-#if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
 	if (mbhc->wcd_aatc_dev_np) {
 		if (connect) {
 			if (mbhc->mbhc_cb && mbhc->mbhc_cb->zdet_leakage_resistance) {
