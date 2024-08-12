@@ -390,7 +390,8 @@ int msm_common_snd_hw_params(struct snd_pcm_substream *substream,
 	struct msm_common_pdata *pdata = msm_common_get_pdata(card);
 	int index = get_mi2s_tdm_auxpcm_intf_index(stream_name);
 	struct clk_cfg intf_clk_cfg;
-#if IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+#if IS_ENABLED(CONFIG_ARCH_SONY_NAGARA) || \
+	IS_ENABLED(CONFIG_ARCH_SONY_YODO)
 	struct snd_soc_component *component = NULL;
 	struct snd_soc_dai **dais = rtd->dais;
 	int i;
@@ -483,7 +484,8 @@ int msm_common_snd_hw_params(struct snd_pcm_substream *substream,
 						__func__, ret);
 					goto done;
 				}
-#if IS_ENABLED(CONFIG_ARCH_SONY_YODO)
+#if IS_ENABLED(CONFIG_ARCH_SONY_NAGARA) || \
+	IS_ENABLED(CONFIG_ARCH_SONY_YODO)
 				for (i = rtd->num_cpus; i < (rtd->num_cpus + rtd->num_codecs); i++) {
 					component = dais[i]->component;
 					snd_soc_dai_set_fmt(dais[i],
