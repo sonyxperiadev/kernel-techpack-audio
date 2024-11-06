@@ -3241,10 +3241,9 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 						this_adm.ec_ref_rx;
 					this_adm.ec_ref_rx = AFE_PORT_INVALID;
 				} else {
-					pr_err("%s: EC channels not set %d\n",
+					pr_warn("%s: EC channels not set %d\n",
 						__func__,
 						this_adm.num_ec_ref_rx_chans);
-					return -EINVAL;
 				}
 			}
 
