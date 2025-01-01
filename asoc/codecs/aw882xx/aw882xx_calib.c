@@ -52,6 +52,10 @@ static DEFINE_MUTEX(g_cali_lock);
 #define AW_CALI_STORE_EXAMPLE
 #endif
 
+#if IS_ENABLED(CONFIG_ARCH_SONY_COLUMBIA)
+#define AW_CALI_STORE_EXAMPLE
+#endif
+
 #ifdef AW_CALI_STORE_EXAMPLE
  /*write cali to persist file example*/
 #define AWINIC_CALI_FILE  "/mnt/vendor/persist/factory/audio/aw_cali.bin"
@@ -82,6 +86,14 @@ static int aw_cali_write_cali_re_to_file(int32_t cali_re, int channel)
 	loff_t pos = 0;
 #if !defined AW_KERNEL_VER_OVER_6_1_0
 	mm_segment_t fs;
+#endif
+
+#if IS_ENABLED(CONFIG_ARCH_SONY_COLUMBIA)
+	/*
+	 * Never ever try to overwrite the calibration file,
+	 * otherwise you will have to restore it manually.
+	 */
+	return 0;
 #endif
 
 	fp = filp_open(AWINIC_CALI_FILE, O_RDWR | O_CREAT, 0644);

@@ -340,6 +340,12 @@ static void aw_pid_2032_dev_init(struct aw_device *aw_pa)
 	aw_pa->reg_num = AW_PID_2032_REG_MAX;
 	/* call aw device init func */
 	memcpy(aw_pa->monitor_name, AW_PID_2032_MONITOR_FILE, strlen(AW_PID_2032_MONITOR_FILE));
+
+#if IS_ENABLED(CONFIG_ARCH_SONY_COLUMBIA)
+	strscpy(aw_pa->fw_name, "aw88263_acf.bin", sizeof(aw_pa->fw_name));
+	strscpy(aw_pa->chip_name, "AW88263", sizeof(aw_pa->chip_name));
+#endif
+
 	aw_pa->vol_step = AW_6_0P125_VOL_STEP_DB;
 
 	aw_pa->ops.aw_reg_val_to_db = aw_6_0P125_reg_val_to_db;
@@ -655,6 +661,12 @@ static void aw_pid_2113_dev_init(struct aw_device *aw_pa)
 	aw_pa->reg_num = AW_PID_2113_REG_MAX;
 	/*call aw device init func*/
 	memcpy(aw_pa->monitor_name, AW_PID_2113_MONITOR_FILE, strlen(AW_PID_2113_MONITOR_FILE));
+
+#if IS_ENABLED(CONFIG_ARCH_SONY_COLUMBIA)
+	strscpy(aw_pa->fw_name, "aw88261_acf.bin", sizeof(aw_pa->fw_name));
+	strscpy(aw_pa->chip_name, "AW88261", sizeof(aw_pa->chip_name));
+#endif
+
 	aw_pa->vol_step = AW_6_0P125_VOL_STEP_DB;
 
 	aw_pa->ops.aw_reg_val_to_db = aw_6_0P125_reg_val_to_db;
