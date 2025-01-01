@@ -858,6 +858,8 @@ void aw_dev_init_cmm(struct aw_device *aw_pa)
 	/*call aw device init func*/
 	memset(aw_pa->monitor_name, 0, AW_NAME_MAX);
 
+	strscpy(aw_pa->fw_name, ACF_BIN_NAME, sizeof(aw_pa->fw_name));
+
 	aw_pa->vol_step = FADE_DEFAULT_VOL_STEP;
 	aw_pa->prof_info.prof_desc = NULL;
 

@@ -1022,13 +1022,14 @@ static void aw882xx_request_firmware(struct work_struct *work)
 	int ret = -1;
 	struct aw882xx *aw882xx =
 			container_of(work, struct aw882xx, fw_work.work);
+	struct aw_device *aw_dev = aw882xx->aw_pa;
 	const struct firmware *cont = NULL;
 	struct aw_container *aw_cfg = NULL;
 
 	aw882xx->fw_status = AW_DEV_FW_FAILED;
-	ret = request_firmware(&cont, ACF_BIN_NAME, aw882xx->dev);
+	ret = request_firmware(&cont, aw_dev->fw_name, aw882xx->dev);
 	if ((ret) || (!cont)) {
-		aw_dev_info(aw882xx->dev, "load [%s] failed!", ACF_BIN_NAME);
+		aw_dev_info(aw882xx->dev, "load [%s] failed!", aw_dev->fw_name);
 		if (aw882xx->fw_retry_cnt == AW_READ_CHIPID_RETRIES) {
 			aw882xx->fw_retry_cnt = 0;
 		} else {
@@ -1036,14 +1037,14 @@ static void aw882xx_request_firmware(struct work_struct *work)
 			/* sleep 1s */
 			msleep(1000);
 			aw_dev_info(aw882xx->dev, "load [%s] try [%d]!",
-						ACF_BIN_NAME, aw882xx->fw_retry_cnt);
+						aw_dev->fw_name, aw882xx->fw_retry_cnt);
 			aw882xx_request_firmware(work);
 		}
 		return;
 	}
 
 	aw_dev_info(aw882xx->dev, "load [%s] , file size: [%zu]",
-			ACF_BIN_NAME, cont ? cont->size : 0);
+			aw_dev->fw_name, cont ? cont->size : 0);
 
 	mutex_lock(&g_aw882xx_lock);
 	if (g_awinic_cfg == NULL) {
@@ -1059,7 +1060,7 @@ static void aw882xx_request_firmware(struct work_struct *work)
 		release_firmware(cont);
 		ret = aw882xx_dev_parse_check_acf(aw_cfg);
 		if (ret) {
-			aw_dev_err(aw882xx->dev, "Load [%s] failed ....!", ACF_BIN_NAME);
+			aw_dev_err(aw882xx->dev, "Load [%s] failed ....!", aw_dev->fw_name);
 			vfree(aw_cfg);
 			aw_cfg = NULL;
 			mutex_unlock(&g_aw882xx_lock);
@@ -1069,7 +1070,7 @@ static void aw882xx_request_firmware(struct work_struct *work)
 	} else {
 		aw_cfg = g_awinic_cfg;
 		release_firmware(cont);
-		aw_dev_info(aw882xx->dev, "[%s] already loaded...", ACF_BIN_NAME);
+		aw_dev_info(aw882xx->dev, "[%s] already loaded...", aw_dev->fw_name);
 	}
 	mutex_unlock(&g_aw882xx_lock);
 
