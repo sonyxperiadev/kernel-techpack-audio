@@ -860,6 +860,8 @@ void aw_dev_init_cmm(struct aw_device *aw_pa)
 
 	strscpy(aw_pa->fw_name, ACF_BIN_NAME, sizeof(aw_pa->fw_name));
 
+	strscpy(aw_pa->chip_name, "AW882XX", sizeof(aw_pa->chip_name));
+
 	aw_pa->vol_step = FADE_DEFAULT_VOL_STEP;
 	aw_pa->prof_info.prof_desc = NULL;
 

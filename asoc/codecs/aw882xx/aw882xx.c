@@ -2684,6 +2684,19 @@ static ssize_t vol_offset_show(struct device *dev,
 	return len;
 }
 
+static ssize_t chip_name_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct aw882xx *aw882xx = dev_get_drvdata(dev);
+	struct aw_device *aw_dev = aw882xx->aw_pa;
+	ssize_t len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len,
+		"%s\n", aw_dev->chip_name);
+
+	return len;
+}
+
 
 static DEVICE_ATTR_RW(reg);
 static DEVICE_ATTR_RW(rw);
@@ -2696,6 +2709,7 @@ static DEVICE_ATTR_RW(phase_sync);
 static DEVICE_ATTR_RW(print_dbg);
 static DEVICE_ATTR_RO(algo_ver);
 static DEVICE_ATTR_RW(vol_offset);
+static DEVICE_ATTR_RO(chip_name);
 
 
 static struct attribute *aw882xx_attributes[] = {
@@ -2710,6 +2724,7 @@ static struct attribute *aw882xx_attributes[] = {
 	&dev_attr_print_dbg.attr,
 	&dev_attr_algo_ver.attr,
 	&dev_attr_vol_offset.attr,
+	&dev_attr_chip_name.attr,
 	NULL
 };
 

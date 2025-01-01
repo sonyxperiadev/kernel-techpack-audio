@@ -337,6 +337,7 @@ struct aw_device {
 	struct i2c_client *i2c;
 	char monitor_name[AW_NAME_MAX];
 	char fw_name[AW_NAME_MAX];
+	char chip_name[AW_NAME_MAX];
 	struct workqueue_struct *work_queue;
 
 	struct aw_ef_desc ef_desc;
