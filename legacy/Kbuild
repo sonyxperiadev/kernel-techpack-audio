@@ -1,0 +1,13 @@
+LEGACY_PATH := $(srctree)/techpack/audio/legacy
+
+LINUXINCLUDE += \
+		-I$(LEGACY_PATH)/include/uapi \
+		-I$(LEGACY_PATH)/include/uapi/audio \
+		-I$(LEGACY_PATH)/include/asoc \
+		-I$(LEGACY_PATH)/include
+USERINCLUDE += -I$(LEGACY_PATH)/include/uapi/audio
+
+obj-y += soc/
+obj-y += dsp/
+obj-y += ipc/
+obj-y += asoc/
