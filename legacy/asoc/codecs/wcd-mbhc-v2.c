@@ -563,6 +563,9 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 	struct snd_soc_component *component = mbhc->component;
 	bool is_pa_on = false;
 	u8 fsm_en = 0;
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
+	bool skip_report = false;
+#endif
 
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
@@ -602,6 +605,9 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			mbhc->micbias_enable = false;
 		}
 
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
+		mbhc->extn_cable_inserted = false;
+#endif
 		mbhc->hph_type = WCD_MBHC_HPH_NONE;
 		mbhc->zl = mbhc->zr = 0;
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
@@ -688,9 +694,13 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		else if (jack_type == SND_JACK_HEADSET) {
 			mbhc->current_plug = MBHC_PLUG_TYPE_HEADSET;
 			mbhc->jiffies_atreport = jiffies;
-		} else if (jack_type == SND_JACK_LINEOUT)
+		} else if (jack_type == SND_JACK_LINEOUT) {
 			mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
-		else {
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
+			skip_report = true;
+			pr_debug("%s: extension cable detected\n", __func__);
+#endif
+		} else {
 			pr_debug("%s: invalid Jack type %d\n",__func__, jack_type);
 		}
 
@@ -766,11 +776,22 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		    mbhc->mbhc_cb->mbhc_micb_ramp_control)
 			mbhc->mbhc_cb->mbhc_micb_ramp_control(component, false);
 
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
+		if (skip_report) {
+			pr_debug("%s: Skip reporting insertion\n", __func__);
+			goto skip;
+		}
+#endif
+
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				    (mbhc->hph_status | SND_JACK_MECHANICAL),
 				    WCD_MBHC_JACK_MASK);
+
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
+skip:
+#endif
 		wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
 	}
 	pr_debug("%s: leave hph_status %x\n", __func__, mbhc->hph_status);
@@ -1826,6 +1847,9 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_component *component,
 		mbhc->moist_rref = hph_moist_config[2];
 	}
 
+#if defined(CONFIG_ARCH_SONY_MURRAY) || defined(CONFIG_ARCH_SONY_ZAMBEZI)
+	mbhc->extn_cable_inserted = false;
+#endif
 	mbhc->in_swch_irq_handler = false;
 	mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
 	mbhc->is_btn_press = false;
