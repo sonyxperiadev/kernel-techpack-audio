@@ -14,13 +14,21 @@
 #ifndef __AW882XX_DSP_H__
 #define __AW882XX_DSP_H__
 
-/*#define AW_QCOM_PLATFORM*/
+#ifdef CONFIG_SND_SOC_AW882XX_QCOM_PLATFORM
+#define AW_QCOM_PLATFORM
+#endif
 
+#ifdef CONFIG_SND_SOC_AW882XX_AUDIOREACH_PLATFORM
 #define AW_AUDIOREACH_PLATFORM
+#endif
 
-/*#define AW_QCOM_ADM_MSG*/
+#ifdef CONFIG_SND_SOC_AW882XX_QCOM_ADM_MSG
+#define AW_QCOM_ADM_MSG
+#endif
 
-/*#define AW_ALGO_AUTH_DSP*/
+#ifdef CONFIG_SND_SOC_AW882XX_ALGO_AUTH_DSP
+#define AW_ALGO_AUTH_DSP
+#endif
 
 /*factor form 12bit(4096) to 1000*/
 #define AW_DSP_RE_TO_SHOW_RE(re)	(((re) * (1000)) >> (12))

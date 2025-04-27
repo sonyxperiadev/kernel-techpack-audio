@@ -52,10 +52,6 @@ static DEFINE_MUTEX(g_cali_lock);
 #define AW_CALI_STORE_EXAMPLE
 #endif
 
-#if IS_ENABLED(CONFIG_ARCH_SONY_COLUMBIA)
-#define AW_CALI_STORE_EXAMPLE
-#endif
-
 #ifdef AW_CALI_STORE_EXAMPLE
  /*write cali to persist file example*/
 #define AWINIC_CALI_FILE  "/mnt/vendor/persist/factory/audio/aw_cali.bin"
