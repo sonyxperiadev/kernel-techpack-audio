@@ -32,9 +32,6 @@
 #include <dsp/q6audio-v2.h>
 #include <dsp/q6core.h>
 #include <dsp/q6asm-v2.h>
-#ifdef CONFIG_MSM_BOOT_STATS
-#include <soc/qcom/boot_stats.h>
-#endif
 
 #include "msm-pcm-q6-v2.h"
 #include "msm-pcm-routing-v2.h"
@@ -873,18 +870,11 @@ static int msm_pcm_trigger(struct snd_soc_component *component,
 	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
-	static int first_time = 1;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if (first_time) {
-#ifdef CONFIG_MSM_BOOT_STATS
-			place_marker("K - Early chime");
-#endif
-			first_time = 0;
-		}
 		pr_debug("%s: Trigger start\n", __func__);
 		ret = q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
 		break;

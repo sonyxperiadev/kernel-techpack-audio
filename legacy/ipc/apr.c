@@ -30,7 +30,6 @@
 #include <dsp/audio_notifier.h>
 #include <ipc/apr.h>
 #include <ipc/apr_tal.h>
-#include <soc/qcom/boot_stats.h>
 
 #define APR_PKT_IPC_LOG_PAGE_CNT 2
 
@@ -315,7 +314,6 @@ static void apr_add_child_devices(struct work_struct *work)
 static void apr_adsp_up(void)
 {
 	pr_info("%s: Q6 is Up\n", __func__);
-	place_marker("M - ADSP Ready");
 	apr_set_q6_state(APR_SUBSYS_LOADED);
 
 	spin_lock(&apr_priv->apr_lock);

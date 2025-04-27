@@ -16,6 +16,7 @@
 #include <linux/bitops.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pm_runtime.h>
+#include <soc/internal.h>
 #include <soc/soundwire.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -27,7 +28,6 @@
 #include <linux/i2c.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
-#include <internal.h>
 #include <linux/regmap.h>
 #include <asoc/msm-cdc-pinctrl.h>
 #include "wsa881x-analog.h"
