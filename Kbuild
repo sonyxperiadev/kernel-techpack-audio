@@ -1,3 +1,4 @@
+ifeq ($(filter y, $(CONFIG_ARCH_LAHAINA) $(CONFIG_ARCH_BLAIR)),)
 AUDIO_ROOT := $(srctree)/techpack/audio
 
 ifeq ($(CONFIG_ARCH_PARROT), y)
@@ -16,3 +17,6 @@ obj-y += soc/
 obj-y += dsp/
 obj-y += ipc/
 obj-y += asoc/
+else
+obj-y += legacy/
+endif

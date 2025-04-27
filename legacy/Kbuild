@@ -1,5 +1,15 @@
 LEGACY_PATH := $(srctree)/techpack/audio/legacy
 
+ifeq ($(CONFIG_ARCH_LAHAINA), y)
+include $(LEGACY_PATH)/config/lahainaauto.conf
+LINUXINCLUDE += -include $(LEGACY_PATH)/config/lahainaautoconf.h
+endif
+
+ifeq ($(CONFIG_ARCH_BLAIR), y)
+include $(LEGACY_PATH)/config/holiauto.conf
+LINUXINCLUDE += -include $(LEGACY_PATH)/config/holiautoconf.h
+endif
+
 LINUXINCLUDE += \
 		-I$(LEGACY_PATH)/include/uapi \
 		-I$(LEGACY_PATH)/include/uapi/audio \
