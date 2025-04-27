@@ -523,11 +523,11 @@ static irqreturn_t wsa883x_pa_on_err_handle_irq(int irq, void *data)
 	if (!component)
 		return IRQ_NONE;
 
-	pa_fsm_sta = (snd_soc_component_read32(component, WSA883X_PA_FSM_STA)
+	pa_fsm_sta = (snd_soc_component_read(component, WSA883X_PA_FSM_STA)
 			& 0x70);
 
 	if (pa_fsm_sta)
-		pa_fsm_err = snd_soc_component_read32(component,
+		pa_fsm_err = snd_soc_component_read(component,
 						WSA883X_PA_FSM_ERR_COND);
 	pr_err_ratelimited("%s: irq: %d, pa_fsm_sta: %d, pa_fsm_err: %d\n",
 		__func__, irq, pa_fsm_sta, pa_fsm_err);
@@ -1263,19 +1263,19 @@ static int32_t wsa883x_temp_reg_read(struct snd_soc_component *component,
 
 	snd_soc_component_update_bits(component, WSA883X_TADC_VALUE_CTL,
 				0x01, 0x00);
-	wsa_temp_reg->dmeas_msb = snd_soc_component_read32(
+	wsa_temp_reg->dmeas_msb = snd_soc_component_read(
 					component, WSA883X_TEMP_MSB);
-	wsa_temp_reg->dmeas_lsb = snd_soc_component_read32(
+	wsa_temp_reg->dmeas_lsb = snd_soc_component_read(
 					component, WSA883X_TEMP_LSB);
 	snd_soc_component_update_bits(component, WSA883X_TADC_VALUE_CTL,
 					0x01, 0x01);
-	wsa_temp_reg->d1_msb = snd_soc_component_read32(
+	wsa_temp_reg->d1_msb = snd_soc_component_read(
 					component, WSA883X_OTP_REG_1);
-	wsa_temp_reg->d1_lsb = snd_soc_component_read32(
+	wsa_temp_reg->d1_lsb = snd_soc_component_read(
 					component, WSA883X_OTP_REG_2);
-	wsa_temp_reg->d2_msb = snd_soc_component_read32(
+	wsa_temp_reg->d2_msb = snd_soc_component_read(
 					component, WSA883X_OTP_REG_3);
-	wsa_temp_reg->d2_lsb = snd_soc_component_read32(
+	wsa_temp_reg->d2_lsb = snd_soc_component_read(
 					component, WSA883X_OTP_REG_4);
 
 	snd_soc_component_update_bits(component, WSA883X_PA_FSM_BYP,
@@ -1374,11 +1374,11 @@ static int wsa883x_codec_probe(struct snd_soc_component *component)
 	dev = wsa883x->swr_slave;
 	wsa883x->component = component;
 
-	variant = (snd_soc_component_read32(component, WSA883X_OTP_REG_0)
+	variant = (snd_soc_component_read(component, WSA883X_OTP_REG_0)
 					    & 0x0F);
 	wsa883x->variant = variant;
 
-	version = (snd_soc_component_read32(component, WSA883X_CHIP_ID0)
+	version = (snd_soc_component_read(component, WSA883X_CHIP_ID0)
 					    & 0xFF);
 	wsa883x->version = version;
 
@@ -1629,7 +1629,6 @@ static int wsa883x_swr_probe(struct swr_device *pdev)
 	bool pin_state_current = false;
 	struct wsa_ctrl_platform_data *plat_data = NULL;
 	struct snd_soc_component *component;
-	const char *wsa883x_name_prefix_of = NULL;
 	char buffer[MAX_NAME_LEN];
 	int dev_index = 0;
 	struct regmap_irq_chip *wsa883x_sub_regmap_irq_chip = NULL;
@@ -1758,25 +1757,15 @@ static int wsa883x_swr_probe(struct swr_device *pdev)
 
 	wcd_disable_irq(&wsa883x->irq_info, WSA883X_IRQ_INT_PA_ON_ERR);
 
-	ret = of_property_read_string(pdev->dev.of_node, "qcom,wsa-prefix",
-				&wsa883x_name_prefix_of);
-	if (ret) {
-		dev_err(&pdev->dev,
-			"%s: Looking up %s property in node %s failed\n",
-			__func__, "qcom,wsa-prefix",
-			pdev->dev.of_node->full_name);
+	wsa883x->driver = devm_kzalloc(&pdev->dev,
+			sizeof(struct snd_soc_component_driver), GFP_KERNEL);
+	if (!wsa883x->driver) {
+		ret = -ENOMEM;
 		goto err_irq;
 	}
 
-	wsa883x->driver = devm_kzalloc(&pdev->dev,
-			sizeof(struct snd_soc_component_driver), GFP_KERNEL);
-        if (!wsa883x->driver) {
-                ret = -ENOMEM;
-                goto err_irq;
-        }
-
-        memcpy(wsa883x->driver, &soc_codec_dev_wsa883x_wsa,
-                        sizeof(struct snd_soc_component_driver));
+	memcpy(wsa883x->driver, &soc_codec_dev_wsa883x_wsa,
+				sizeof(struct snd_soc_component_driver));
 
 	wsa883x->dai_driver = devm_kzalloc(&pdev->dev,
 				sizeof(struct snd_soc_dai_driver), GFP_KERNEL);
@@ -1805,15 +1794,12 @@ static int wsa883x_swr_probe(struct swr_device *pdev)
 	ret = snd_soc_register_component(&pdev->dev,
 				wsa883x->driver, wsa883x->dai_driver, 1);
 
-	wsa883x->wsa883x_name_prefix = kstrndup(wsa883x_name_prefix_of,
-			strlen(wsa883x_name_prefix_of), GFP_KERNEL);
 	component = snd_soc_lookup_component(&pdev->dev, wsa883x->driver->name);
 	if (!component) {
 		dev_err(&pdev->dev, "%s: component is NULL \n", __func__);
 		ret = -EINVAL;
 		goto err_mem;
 	}
-	component->name_prefix = wsa883x->wsa883x_name_prefix;
 
 	wsa883x->parent_np = of_parse_phandle(pdev->dev.of_node,
 					      "qcom,bolero-handle", 0);
@@ -1880,7 +1866,6 @@ static int wsa883x_swr_probe(struct swr_device *pdev)
 	return 0;
 
 err_mem:
-	kfree(wsa883x->wsa883x_name_prefix);
 	if (wsa883x->dai_driver) {
 		kfree(wsa883x->dai_driver->name);
 		kfree(wsa883x->dai_driver->playback.stream_name);
@@ -1941,7 +1926,6 @@ static int wsa883x_swr_remove(struct swr_device *pdev)
 #endif
 	mutex_destroy(&wsa883x->res_lock);
 	snd_soc_unregister_component(&pdev->dev);
-	kfree(wsa883x->wsa883x_name_prefix);
 	if (wsa883x->dai_driver) {
 		kfree(wsa883x->dai_driver->name);
 		kfree(wsa883x->dai_driver->playback.stream_name);

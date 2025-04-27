@@ -14,7 +14,6 @@
 #include <linux/list.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
-#include <linux/dma-buf-map.h>
 #include <linux/dma-heap.h>
 #include <linux/platform_device.h>
 #include <linux/of_device.h>
@@ -42,7 +41,7 @@ struct msm_audio_ion_private {
 
 struct msm_audio_alloc_data {
 	size_t len;
-	struct dma_buf_map *vmap;
+	void *vaddr;
 	struct dma_buf *dma_buf;
 	struct dma_buf_attachment *attach;
 	struct sg_table *table;
@@ -169,7 +168,6 @@ static int msm_audio_dma_buf_unmap(struct dma_buf *dma_buf, bool cma_mem)
 			dma_buf_put(alloc_data->dma_buf);
 
 			list_del(&(alloc_data->list));
-			kfree(alloc_data->vmap);
 			kfree(alloc_data);
 			alloc_data = NULL;
 			break;
@@ -230,10 +228,10 @@ int msm_audio_ion_get_smmu_info(struct device **cb_dev,
 	return 0;
 }
 
-static int msm_audio_ion_map_kernel(struct dma_buf *dma_buf,
-				struct dma_buf_map *dma_vmap)
+static void *msm_audio_ion_map_kernel(struct dma_buf *dma_buf)
 {
 	int rc = 0;
+	void *addr = NULL;
 	struct msm_audio_alloc_data *alloc_data = NULL;
 
 	rc = dma_buf_begin_cpu_access(dma_buf, DMA_BIDIRECTIONAL);
@@ -242,8 +240,8 @@ static int msm_audio_ion_map_kernel(struct dma_buf *dma_buf,
 		goto exit;
 	}
 
-	rc = dma_buf_vmap(dma_buf, dma_vmap);
-	if (rc) {
+	addr = dma_buf_vmap(dma_buf);
+	if (addr) {
 		pr_err("%s: kernel mapping of dma_buf failed\n",
 		       __func__);
 		goto exit;
@@ -257,20 +255,20 @@ static int msm_audio_ion_map_kernel(struct dma_buf *dma_buf,
 	list_for_each_entry(alloc_data, &(msm_audio_ion_data.alloc_list),
 			    list) {
 		if (alloc_data->dma_buf == dma_buf) {
-			alloc_data->vmap = dma_vmap;
+			alloc_data->vaddr = addr;
 			break;
 		}
 	}
 	mutex_unlock(&(msm_audio_ion_data.list_mutex));
 
 exit:
-	return rc;
+	return addr;
 }
 
 static int msm_audio_ion_unmap_kernel(struct dma_buf *dma_buf)
 {
 	int rc = 0;
-	struct dma_buf_map *dma_vmap = NULL;
+	void *vaddr = NULL;
 	struct msm_audio_alloc_data *alloc_data = NULL;
 	struct device *cb_dev = msm_audio_ion_data.cb_dev;
 
@@ -282,13 +280,13 @@ static int msm_audio_ion_unmap_kernel(struct dma_buf *dma_buf)
 	list_for_each_entry(alloc_data, &(msm_audio_ion_data.alloc_list),
 			    list) {
 		if (alloc_data->dma_buf == dma_buf) {
-			dma_vmap = alloc_data->vmap;
+			vaddr = alloc_data->vaddr;
 			break;
 		}
 	}
 	mutex_unlock(&(msm_audio_ion_data.list_mutex));
 
-	if (!dma_vmap) {
+	if (!vaddr) {
 		dev_err(cb_dev,
 			"%s: cannot find allocation for dma_buf %pK",
 			__func__, dma_buf);
@@ -296,7 +294,7 @@ static int msm_audio_ion_unmap_kernel(struct dma_buf *dma_buf)
 		goto err;
 	}
 
-	dma_buf_vunmap(dma_buf, dma_vmap);
+	dma_buf_vunmap(dma_buf, vaddr);
 
 	rc = dma_buf_end_cpu_access(dma_buf, DMA_BIDIRECTIONAL);
 	if (rc) {
@@ -310,11 +308,11 @@ err:
 }
 
 static int msm_audio_ion_map_buf(struct dma_buf *dma_buf, dma_addr_t *paddr,
-				 size_t *plen, struct dma_buf_map *dma_vmap)
+				 size_t *plen, void **vaddr)
 {
 	int rc = 0;
 
-	if (!dma_buf || !paddr || !plen) {
+	if (!dma_buf || !paddr || !plen || !vaddr) {
 		pr_err("%s: Invalid params\n", __func__);
 		return -EINVAL;
 	}
@@ -327,10 +325,10 @@ static int msm_audio_ion_map_buf(struct dma_buf *dma_buf, dma_addr_t *paddr,
 		goto err;
 	}
 
-	rc = msm_audio_ion_map_kernel(dma_buf, dma_vmap);
-	if (rc) {
-		pr_err("%s: ION memory mapping for AUDIO failed, err:%d\n",
-				__func__, rc);
+	*vaddr = msm_audio_ion_map_kernel(dma_buf);
+	if (IS_ERR_OR_NULL(*vaddr)) {
+		pr_err("%s: ION memory mapping for AUDIO failed\n",
+				__func__);
 		rc = -ENOMEM;
 		msm_audio_dma_buf_unmap(dma_buf, false);
 		goto err;
@@ -366,7 +364,6 @@ int msm_audio_ion_alloc(struct dma_buf **dma_buf, size_t bufsz,
 	int rc = -EINVAL;
 	unsigned long err_ion_ptr = 0;
 	struct dma_heap *heap = NULL;
-	struct dma_buf_map *dma_vmap = NULL;
 
 	if (!(msm_audio_ion_data.device_status & MSM_AUDIO_ION_PROBED)) {
 		pr_debug("%s:probe is not done, deferred\n", __func__);
@@ -377,18 +374,11 @@ int msm_audio_ion_alloc(struct dma_buf **dma_buf, size_t bufsz,
 		return -EINVAL;
 	}
 
-	dma_vmap = kzalloc(sizeof(*dma_vmap), GFP_KERNEL);
-	if (!dma_vmap) {
-		rc = -ENOMEM;
-		goto err;
-	}
-
 	if (msm_audio_ion_data.smmu_enabled == true) {
 		pr_debug("%s: system heap is used\n", __func__);
 		heap = dma_heap_find("qcom,system-uncached");
 		if (!heap) {
 			pr_err("Unable to find the system-uncached heap\n");
-			kfree(dma_vmap);
 			goto err;
 		}
 	} else {
@@ -396,7 +386,6 @@ int msm_audio_ion_alloc(struct dma_buf **dma_buf, size_t bufsz,
 		heap = dma_heap_find("qcom,audio");
 		if (!heap) {
 			pr_err("Unable to find the audio heap\n");
-			kfree(dma_vmap);
 			goto err;
 		}
 	}
@@ -408,18 +397,15 @@ int msm_audio_ion_alloc(struct dma_buf **dma_buf, size_t bufsz,
 		pr_err("%s: ION alloc fail err ptr=%ld, smmu_enabled=%d\n",
 		       __func__, err_ion_ptr, msm_audio_ion_data.smmu_enabled);
 		rc = -ENOMEM;
-		kfree(dma_vmap);
 		goto err;
 	}
 
-	rc = msm_audio_ion_map_buf(*dma_buf, paddr, plen, dma_vmap);
+	rc = msm_audio_ion_map_buf(*dma_buf, paddr, plen, vaddr);
 	if (rc) {
 		pr_err("%s: failed to map ION buf, rc = %d\n", __func__, rc);
-		kfree(dma_vmap);
 		goto err;
 	}
 
-	*vaddr = dma_vmap->vaddr;
 	pr_debug("%s: mapped address = %pK, size=%zd\n", __func__,
 		*vaddr, bufsz);
 
@@ -477,7 +463,7 @@ EXPORT_SYMBOL(msm_audio_ion_dma_map);
  * @bufsz: buffer size
  * @paddr: Physical address to be assigned with allocated region
  * @plen: length of allocated region to be assigned
- * @dma_vmap: Virtual mapping vmap pointer to be assigned
+ * @vaddr: virtual address to be assigned
  *
  * Returns 0 on success or error on failure
  */
@@ -486,7 +472,6 @@ int msm_audio_ion_import(struct dma_buf **dma_buf, int fd,
 			dma_addr_t *paddr, size_t *plen, void **vaddr)
 {
 	int rc = 0;
-	struct dma_buf_map *dma_vmap = NULL;
 
 	if (!(msm_audio_ion_data.device_status & MSM_AUDIO_ION_PROBED)) {
 		pr_debug("%s: probe is not done, deferred\n", __func__);
@@ -497,10 +482,6 @@ int msm_audio_ion_import(struct dma_buf **dma_buf, int fd,
 		pr_err("%s: Invalid params\n", __func__);
 		return -EINVAL;
 	}
-
-	dma_vmap = kzalloc(sizeof(*dma_vmap), GFP_KERNEL);
-	if (!dma_vmap)
-		return -ENOMEM;
 
 	/* bufsz should be 0 and fd shouldn't be 0 as of now */
 	*dma_buf = dma_buf_get(fd);
@@ -520,13 +501,12 @@ int msm_audio_ion_import(struct dma_buf **dma_buf, int fd,
 		}
 	}
 
-	rc = msm_audio_ion_map_buf(*dma_buf, paddr, plen, dma_vmap);
+	rc = msm_audio_ion_map_buf(*dma_buf, paddr, plen, vaddr);
 	if (rc) {
 		pr_err("%s: failed to map ION buf, rc = %d\n", __func__, rc);
 		goto err;
 	}
 
-	*vaddr = dma_vmap->vaddr;
 	pr_debug("%s: mapped address = %pK, size=%zd\n", __func__,
 		*vaddr, bufsz);
 
@@ -535,7 +515,6 @@ int msm_audio_ion_import(struct dma_buf **dma_buf, int fd,
 err_ion_flag:
 	dma_buf_put(*dma_buf);
 err:
-	kfree(dma_vmap);
 	*dma_buf = NULL;
 	return rc;
 }

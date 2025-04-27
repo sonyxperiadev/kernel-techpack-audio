@@ -19,8 +19,6 @@
 #include <linux/slab.h>
 #include <linux/remoteproc.h>
 #include <linux/remoteproc/qcom_rproc.h>
-#include <soc/qcom/boot_stats.h>
-
 
 #define Q6_PIL_GET_DELAY_MS 100
 #define BOOT_CMD 1
@@ -177,7 +175,6 @@ load_adsp:
 			goto fail;
 		adsp_state = apr_get_q6_state();
 		if (adsp_state == APR_SUBSYS_DOWN) {
-			place_marker("M - Start ADSP");
 			rc = rproc_boot(priv->pil_h);
 
 			if (rc) {
